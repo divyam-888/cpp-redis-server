@@ -7,7 +7,25 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <thread>
+#include <chrono>
 using namespace std;
+
+void handleClient(int server_fd) {
+  char buffer[1024];
+  struct sockaddr_in client_addr;
+  int client_addr_len = sizeof(client_addr);
+  std::cout << "Waiting for a client to connect...\n";
+
+  int client_fd = accept(server_fd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_len);
+  std::cout << "Client connected\n";
+  ssize_t bytes_read = recv(client_fd, buffer, sizeof(buffer), 0);
+
+  const char *response = "+PONG\r\n";
+  send(client_fd, response, strlen(response), 0);
+  close(client_fd);
+}
+
 
 int main(int argc, char **argv)
 {
@@ -57,29 +75,31 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  struct sockaddr_in client_addr;
-  int client_addr_len = sizeof(client_addr);
-  std::cout << "Waiting for a client to connect...\n";
+  // struct sockaddr_in client_addr;
+  // int client_addr_len = sizeof(client_addr);
+  // std::cout << "Waiting for a client to connect...\n";
 
   std::cout << "Logs from your program will appear here!\n";
 
-  int client_fd = accept(server_fd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_len);
-  std::cout << "Client connected\n";
+  // int client_fd = accept(server_fd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_len);
+  // std::cout << "Client connected\n";
 
-  char buffer[1024];
-  const char *response = "+PONG\r\n";
+  // char buffer[1024];
+  // const char *response = "+PONG\r\n";
 
-  while(true) {
-    ssize_t bytes_read = recv(client_fd, buffer, sizeof(buffer), 0);
-    if(bytes_read <= 0) {
-      std::cout << "Done reading\n";
-      break;
-    }
-    send(client_fd, response, strlen(response), 0);
-  }
+  // while(true) {
+  //   ssize_t bytes_read = recv(client_fd, buffer, sizeof(buffer), 0);
+  //   if(bytes_read <= 0) {
+  //     std::cout << "Done reading\n";
+  //     break;
+  //   }
+  //   send(client_fd, response, strlen(response), 0);
+  // }
 
-  close(client_fd);
+  // close(client_fd);
+  thread t1(handleClient, server_fd);
+  thread t2(handleClient, server_fd);
+
   close(server_fd);
-
   return 0;
 }
