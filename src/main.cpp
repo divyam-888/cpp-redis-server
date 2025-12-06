@@ -176,7 +176,7 @@ std::string process_command(RESPValue& input) {
 
       if (arg == "PX" && i + 1 < input.array.size()) {
           try {
-              PX = std::stoll(input.array[i + 1].value); // Use stoll for long long
+              PX = std::stoll(input.array[i + 1].value); 
               i++; 
           } catch (...) {
               return "-ERR value is not an integer or out of range\r\n";
