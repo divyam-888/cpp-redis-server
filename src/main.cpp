@@ -19,8 +19,8 @@ enum class RESPType {INTEGER, SIMPLE_STRING, BULK_STRING, ARRAY, ERROR};
 
 struct RESPValue {
     RESPType type;
-    std::string value;               // For strings, errors, integers
-    std::vector<RESPValue> array;    // For arrays (recursive!)
+    std::string value;              
+    std::vector<RESPValue> array;    // to store RESP commands as array
 };
 
 class RESPParser {
@@ -41,10 +41,10 @@ public:
     }
 
 private:
-    const std::string& buffer; // Reference to the big raw data
+    const std::string& buffer; 
     size_t pos;                // Current cursor position
 
-    // Read until \r\n and return that chunk
+    // Read until \r\n and return that part
     std::string readLine() {
         size_t end = buffer.find("\r\n", pos);
         std::string line = buffer.substr(pos, end - pos);
@@ -93,22 +93,20 @@ std::string process_command(RESPValue& input) {
 
   std::string command = input.array[0].value;
     
-  // Normalize to uppercase 
+  // normalize to uppercase 
   std::transform(command.begin(), command.end(), command.begin(), ::toupper);
-  // 3. Handle specific commands
+  
   if (command == "PING") {
       return "+PONG\r\n";
   } 
   else if (command == "ECHO") {
-      // ECHO expects 1 argument. The array should look like: ["ECHO", "arg1"]
       if (input.array.size() < 2) {
           return "-ERR wrong number of arguments for 'echo' command\r\n";
       }
-      
-      // We need to return the argument back as a Bulk String
+
       std::string argument = input.array[1].value;
       
-      // Format it manually: $ + length + \r\n + content + \r\n
+      // returning it as RESP bulk string: $ + length + \r\n + content + \r\n
       return "$" + std::to_string(argument.length()) + "\r\n" + argument + "\r\n";
   }
   return "-ERR unknown command\r\n";
@@ -188,11 +186,11 @@ int main(int argc, char **argv)
   std::cout << "Server is listening...\n";
 
     while(true) {
-        // 1. Prepare to accept a new connection
+        // Port for client, client is also a socket like our server, so it also requires to bind to a port
         struct sockaddr_in client_addr;
         int client_addr_len = sizeof(client_addr);
         
-        // 2. The Main Thread blocks here WAITING for a connection
+        // The Main Thread blocks here WAITING for a connection
         int client_fd = accept(server_fd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_len);
         
         if (client_fd < 0) {
@@ -202,13 +200,10 @@ int main(int argc, char **argv)
 
         std::cout << "New Client Connected! Spawning thread...\n";
 
-        // 3. Create a thread specifically for THIS client_fd
-        // We use std::thread and pass the function + arguments
+        // New thread for this client; We use std::thread and pass the function + arguments
         std::thread client_thread(handleClient, client_fd);
 
-        // 4. DETACH the thread
-        // This is crucial. It tells C++: "Let this thread run on its own in the background. 
-        // I (Main) am going back to the top of the loop to wait for the next person."
+        //Detaching the thread so main can continue running waiting for new clients
         client_thread.detach(); 
     }
 
