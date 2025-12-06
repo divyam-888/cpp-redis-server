@@ -12,8 +12,60 @@
 #include <vector>
 #include <optional>
 #include <algorithm>
-
+#include <unordered_map>
+#include <shared_mutex>
+#include <mutex>
+#include <chrono>
 using namespace std;
+
+class KeyValueDatabase {
+  private:
+    struct Entry {
+      std::string value;
+      long long expiry_at = -1;
+    };
+
+    std::unordered_map<std::string, Entry> map;
+    std::shared_mutex rw_lock;
+
+    long long current_time_ms() {
+      return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+    }
+  public:
+    void set(const std::string& key, const std::string& value, long long px_duration = -1) {
+        
+      std::unique_lock<std::shared_mutex> lock(rw_lock); // writer lock (exclusive)
+        
+      long long expiry = -1;
+      if (px_duration > 0) {
+          expiry = current_time_ms() + px_duration;
+      }
+
+      map[key] = {value, expiry};
+    }
+
+    std::optional<std::string> get(const std::string& key) {
+      // acquire a write lock if we might need to delete 
+        
+      std::unique_lock<std::shared_mutex> lock(rw_lock); // we use unique lock because we might delete if the key expired.
+        
+      auto it = map.find(key);
+      if (it == map.end()) {
+          return std::nullopt; // key not found
+      }
+
+      // Check Expiry
+      if (it->second.expiry_at != -1 && it->second.expiry_at < current_time_ms()) {
+          map.erase(it); 
+          return std::nullopt;
+      }
+
+      return it->second.value;
+    }
+};
+
+KeyValueDatabase database;
 
 enum class RESPType {INTEGER, SIMPLE_STRING, BULK_STRING, ARRAY, ERROR};
 
@@ -108,6 +160,56 @@ std::string process_command(RESPValue& input) {
       
       // returning it as RESP bulk string: $ + length + \r\n + content + \r\n
       return "$" + std::to_string(argument.length()) + "\r\n" + argument + "\r\n";
+  } 
+  else if(command == "SET") {
+    if (input.array.size() < 3) {
+        return "-ERR wrong number of arguments for 'SET' command\r\n";
+    }
+
+    std::string key = input.array[1].value;
+    std::string value = input.array[2].value;
+    int PX = -1;
+    
+    for (size_t i = 3; i < input.array.size(); i++) {
+      std::string arg = input.array[i].value;
+      std::transform(arg.begin(), arg.end(), arg.begin(), ::toupper);
+
+      if (arg == "PX" && i + 1 < input.array.size()) {
+          try {
+              PX = std::stoll(input.array[i + 1].value); // Use stoll for long long
+              i++; 
+          } catch (...) {
+              return "-ERR value is not an integer or out of range\r\n";
+          }
+      }
+      else if (arg == "EX" && i + 1 < input.array.size()) {
+          try {
+            PX = std::stoll(input.array[i + 1].value) * 1000;
+            i++;
+          } catch (...) {
+            return "-ERR value is not an integer or out of range\r\n";
+          }
+      }
+  }
+
+    database.set(key, value, PX);
+
+    return "+OK\r\n";
+  }
+  else if(command == "GET") {
+    if (input.array.size() < 2) {
+        return "-ERR wrong number of arguments for 'GET' command\r\n";
+    }
+
+    std::string key = input.array[1].value;
+    std::optional<std::string> result = database.get(key);
+
+    if(result.has_value()) {
+      std::string value = result.value();
+      return "$" + std::to_string(value.length()) + "\r\n" + value + "\r\n";
+    } else {
+      return "$-1\r\n";
+    }
   }
   return "-ERR unknown command\r\n";
 }
