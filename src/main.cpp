@@ -9,24 +9,130 @@
 #include <netdb.h>
 #include <thread>
 #include <chrono>
+#include <vector>
+#include <optional>
+#include <algorithm>
+
 using namespace std;
+
+enum class RESPType {INTEGER, SIMPLE_STRING, BULK_STRING, ARRAY, ERROR};
+
+struct RESPValue {
+    RESPType type;
+    std::string value;               // For strings, errors, integers
+    std::vector<RESPValue> array;    // For arrays (recursive!)
+};
+
+class RESPParser {
+public:
+    RESPParser(const std::string& input) : buffer(input), pos(0) {}
+
+    RESPValue parse() {
+        char type = buffer[pos];
+        pos++; // Move past the type char
+
+        switch (type) {
+            case ':': return parseInteger();
+            case '+': return parseSimpleString();
+            case '$': return parseBulkString();
+            case '*': return parseArray();
+            default: throw std::runtime_error("Unknown type");
+        }
+    }
+
+private:
+    const std::string& buffer; // Reference to the big raw data
+    size_t pos;                // Current cursor position
+
+    // Read until \r\n and return that chunk
+    std::string readLine() {
+        size_t end = buffer.find("\r\n", pos);
+        std::string line = buffer.substr(pos, end - pos);
+        pos = end + 2; // Skip \r\n
+        return line;
+    }
+
+    RESPValue parseInteger() {
+      return {RESPType::INTEGER, readLine(), {}};
+    }
+
+    RESPValue parseSimpleString() {
+        return {RESPType::SIMPLE_STRING, readLine(), {}};
+    }
+
+    RESPValue parseBulkString() {
+        int length = std::stoi(readLine());
+        if (length == -1) return {RESPType::BULK_STRING, "", {}}; 
+        
+        std::string data = buffer.substr(pos, length);
+        pos += length + 2; 
+        return {RESPType::BULK_STRING, data, {}};
+    }
+    
+    RESPValue parseArray() {
+        int count = std::stoi(readLine());
+        RESPValue result;
+        result.type = RESPType::ARRAY;
+        
+        for (int i = 0; i < count; i++) {
+            // Recursion: The array just calls parse() again, it sees each element as a command to be parsed again
+            result.array.push_back(parse());
+        }
+        return result;
+    }
+};
+
+std::string process_command(RESPValue& input) {
+  if(input.type != RESPType::ARRAY) {
+    return "-ERR command must be an array\r\n";
+  }
+
+  if(input.array.empty()) {
+    return "-ERR empty command\r\n";
+  }
+
+  std::string command = input.array[0].value;
+    
+  // Normalize to uppercase 
+  std::transform(command.begin(), command.end(), command.begin(), ::toupper);
+  // 3. Handle specific commands
+  if (command == "PING") {
+      return "+PONG\r\n";
+  } 
+  else if (command == "ECHO") {
+      // ECHO expects 1 argument. The array should look like: ["ECHO", "arg1"]
+      if (input.array.size() < 2) {
+          return "-ERR wrong number of arguments for 'echo' command\r\n";
+      }
+      
+      // We need to return the argument back as a Bulk String
+      std::string argument = input.array[1].value;
+      
+      // Format it manually: $ + length + \r\n + content + \r\n
+      return "$" + std::to_string(argument.length()) + "\r\n" + argument + "\r\n";
+  }
+  return "-ERR unknown command\r\n";
+}
 
 void handleClient(int client_fd) {
     char buffer[1024];
     
-    // Loop to keep talking to THIS client until they disconnect
     while (true) {
         ssize_t bytes_read = recv(client_fd, buffer, sizeof(buffer), 0);
         if (bytes_read <= 0) {
             std::cout << "Client disconnected\n";
-            break; // Stop the loop if they hang up
+            break;
         }
+        string input(buffer, bytes_read);
+        RESPParser parser(input);
+        RESPValue command = parser.parse();
 
-        const char *response = "+PONG\r\n";
-        send(client_fd, response, strlen(response), 0);
+        std::string response = process_command(command);
+        
+        send(client_fd, response.data(), response.length(), 0);
     }
     
-    close(client_fd); // Hang up the phone
+    close(client_fd);
 }
 
 
