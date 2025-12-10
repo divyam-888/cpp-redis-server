@@ -1,6 +1,16 @@
 #pragma once
 #include <string>
 #include <unordered_map>
+#include <shared_mutex>
+#include <mutex>
+#include <optional>
+#include <chrono>
+#include<variant>
+#include<deque>
+#include<vector>
+#include<algorithm>
+#include <string>
+#include <unordered_map>
 #include "Command.hpp"
 
 
@@ -20,8 +30,9 @@ public:
 
     // The new "process_command" logic
     Command* getCommand(const std::string& commandName) {
-        std::transform(commandName.begin(), commandName.end(), commandName.begin(), ::toupper);
-        auto it = command_map.find(commandName);
+        std::string key = commandName; 
+        std::transform(key.begin(), key.end(), key.begin(), ::toupper);
+        auto it = command_map.find(key);
         if (it != command_map.end()) {
             return it->second.get();
         }
