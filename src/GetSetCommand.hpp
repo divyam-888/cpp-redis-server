@@ -1,3 +1,17 @@
+#pragma once
+#include <string>
+#include <unordered_map>
+#include <shared_mutex>
+#include <mutex>
+#include <optional>
+#include <chrono>
+#include<variant>
+#include<deque>
+#include<vector>
+#include<algorithm>
+#include <string>
+#include <unordered_map>
+#include <optional>
 #include "Command.hpp"
 #include "KVStore.hpp"
 
@@ -48,4 +62,27 @@ public:
         db.SET(key, val, PX);
         return "+OK\r\n";
     }
+};
+
+class GetCommand : public Command
+{
+public:
+    std::string name() const override { return "GET"; }
+    int min_args() const override { return 2; }
+
+    std::string execute(const std::vector<std::string> &args, KeyValueDatabase &db) override
+    {
+        std::string key = args[1];
+        std::optional<std::string> result = db.GET(key);
+
+        if (result.has_value())
+        {
+          std::string value = result.value();
+          return "$" + std::to_string(value.length()) + "\r\n" + value + "\r\n";
+        }
+        else
+        {
+          return "$-1\r\n";
+        }
+    }  
 };

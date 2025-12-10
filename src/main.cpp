@@ -14,8 +14,7 @@
 #include "Command.hpp"
 #include "CommandRegistry.hpp"
 #include "PingEchoCommand.hpp"
-#include "SetCommand.hpp"
-#include "GetCommand.hpp"
+#include "GetSetCommand.hpp"
 #include "ListCommands.hpp"
 
 std::vector<std::string> extractArgs(RESPValue &input) {
@@ -70,7 +69,7 @@ void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry
     } else if (args.size() < cmd->min_args()) {
       response = "-ERR wrong number of arguments\r\n";
     } else {
-        response = cmd->execute(args, db);
+      response = cmd->execute(args, db);
     }
 
     send(client_fd, response.data(), response.length(), 0);
