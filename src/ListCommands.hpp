@@ -129,6 +129,12 @@ public:
         }
 
         std::vector<std::string> items = db.LPOP(list_key, num_remove_item);
+
+        if(items.empty()) {
+            return "$-1\r\n";
+        } else if(items.size() == 1) {
+            return "$" + std::to_string(items[0].length()) + "\r\n" + items[0] + "\r\n";
+        }
         
         std::string ans = "*" + std::to_string(items.size()) + "\r\n";
         for(const auto& str : items) {
