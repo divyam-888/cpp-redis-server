@@ -1,12 +1,12 @@
 #pragma once
 #include <string>
 #include <unordered_map>
-#include<Command.hpp>
+#include "Command.hpp"
 
 
 class CommandRegistry {
 private:
-    // The Lookup Table: Maps "SET" -> SetCommand Instance
+    // lookup table, map<command_name, ptr to class which inherits from Command class>
     std::unordered_map<std::string, std::unique_ptr<Command>> command_map;
 
 public:
