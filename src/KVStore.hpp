@@ -5,11 +5,19 @@
 #include <mutex>
 #include <optional>
 #include <chrono>
+#include<variant>
+#include<deque>
+#include<vector>
 
+enum class ObjType {STRING, LIST, HASH };
+
+
+using RedisList = std::deque<std::string>;
 class KeyValueDatabase {
 private:
     struct Entry {
-        std::string value;
+        std::variant<std::string, RedisList> value;
+        ObjType type;
         long long expiry_at = -1;
     };
 
@@ -19,9 +27,13 @@ private:
     long long current_time_ms();
 
 public:
-    void set(const std::string& key, const std::string& value, long long px_duration = -1);
-    std::optional<std::string> get(const std::string& key);
+    void SET(const std::string& key, const std::string& value, long long px_duration = -1);
+    std::optional<std::string> GET(const std::string& key);
+    int RPUSH(std::string& list_key, std::vector<std::string>& items); // Appends 'items' in the RedisList list at the back and returns the size of 'list'
+    int LPUSH(std::string& list_key, std::vector<std::string>& items); // Appends 'items' in the RedisList list at the front and returns the size of 'list'
+    std::vector<std::string> LRANGE(std::string& list_key, int start, int end); 
+    int LLEN(std::string& list_key);
+    std::vector<std::string> LPOP(std::string& list_key, int num_remove_item);
 };
 
 // Declare that a global instance named 'database' exists somewhere.
-extern KeyValueDatabase database;

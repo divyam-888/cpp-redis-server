@@ -11,112 +11,32 @@
 #include <algorithm>
 #include "KVStore.hpp" 
 #include "RESP.hpp"
+#include "Command.hpp"
+#include "CommandRegistry.hpp"
+#include "PingEchoCommand.hpp"
+#include "SetCommand.hpp"
+#include "GetCommand.hpp"
 
-using namespace std;
-
-std::string process_command(RESPValue &input)
-{
-  if (input.type != RESPType::ARRAY)
-  {
-    return "-ERR command must be an array\r\n";
+std::vector<std::string> extractArgs(RESPValue &input) {
+  if (input.type != RESPType::ARRAY || input.array.empty()) {
+    return {};
   }
+  std::vector<std::string> args;
+  args.reserve(input.array.size()); // pre allocate memory for optimization
 
-  if (input.array.empty())
-  {
-    return "-ERR empty command\r\n";
+  for(const auto& item : input.array) {
+    if (item.type == RESPType::ARRAY) {
+      // throw exception if nested arrays are given
+      throw std::runtime_error("Nested arrays are not supported in commands");
+      // Or return empty to signal failure
+      // return {}; 
+    }
+    args.push_back(item.value);
   }
-
-  std::string command = input.array[0].value;
-
-  // normalize to uppercase
-  std::transform(command.begin(), command.end(), command.begin(), ::toupper);
-
-  if (command == "PING")
-  {
-    return "+PONG\r\n";
-  }
-  else if (command == "ECHO")
-  {
-    if (input.array.size() < 2)
-    {
-      return "-ERR wrong number of arguments for 'echo' command\r\n";
-    }
-
-    std::string argument = input.array[1].value;
-
-    // returning it as RESP bulk string: $ + length + \r\n + content + \r\n
-    return "$" + std::to_string(argument.length()) + "\r\n" + argument + "\r\n";
-  }
-  else if (command == "SET")
-  {
-    if (input.array.size() < 3)
-    {
-      return "-ERR wrong number of arguments for 'SET' command\r\n";
-    }
-
-    std::string key = input.array[1].value;
-    std::string value = input.array[2].value;
-    int PX = -1;
-
-    for (size_t i = 3; i < input.array.size(); i++)
-    {
-      std::string arg = input.array[i].value;
-      std::transform(arg.begin(), arg.end(), arg.begin(), ::toupper);
-
-      if (arg == "PX" && i + 1 < input.array.size())
-      {
-        try
-        {
-          PX = std::stoll(input.array[i + 1].value);
-          i++;
-        }
-        catch (...)
-        {
-          return "-ERR value is not an integer or out of range\r\n";
-        }
-      }
-      else if (arg == "EX" && i + 1 < input.array.size())
-      {
-        try
-        {
-          PX = std::stoll(input.array[i + 1].value) * 1000;
-          i++;
-        }
-        catch (...)
-        {
-          return "-ERR value is not an integer or out of range\r\n";
-        }
-      }
-    }
-
-    database.set(key, value, PX);
-
-    return "+OK\r\n";
-  }
-  else if (command == "GET")
-  {
-    if (input.array.size() < 2)
-    {
-      return "-ERR wrong number of arguments for 'GET' command\r\n";
-    }
-
-    std::string key = input.array[1].value;
-    std::optional<std::string> result = database.get(key);
-
-    if (result.has_value())
-    {
-      std::string value = result.value();
-      return "$" + std::to_string(value.length()) + "\r\n" + value + "\r\n";
-    }
-    else
-    {
-      return "$-1\r\n";
-    }
-  }
-  return "-ERR unknown command\r\n";
+  return args;
 }
 
-void handleClient(int client_fd)
+void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry)
 {
   char buffer[1024];
 
@@ -128,11 +48,29 @@ void handleClient(int client_fd)
       std::cout << "Client disconnected\n";
       break;
     }
-    string input(buffer, bytes_read);
-    RESPParser parser(input);
-    RESPValue command = parser.parse();
+    //Get the input from client in char* as RESP string
+    std::string inputString(buffer, bytes_read);
 
-    std::string response = process_command(command);
+    //Break the RESP concatenated string as RESPValue array
+    RESPParser parser(inputString);
+    RESPValue input = parser.parse();
+
+    //From the RESPValue array, get the inputs as vector of string
+    std::vector<std::string> args = extractArgs(input);
+    
+    //Find the Command which we have to execute
+    std::string cmdName = args[0];
+    Command* cmd = registry.getCommand(cmdName);
+
+    std::string response;
+
+    if (!cmd) {
+      response = "-ERR unknown command";
+    } else if (args.size() < cmd->min_args()) {
+      response = "-ERR wrong number of arguments";
+    } else {
+        response = cmd->execute(args, db);
+    }
 
     send(client_fd, response.data(), response.length(), 0);
   }
@@ -142,6 +80,14 @@ void handleClient(int client_fd)
 
 int main(int argc, char **argv)
 {
+  KeyValueDatabase db;
+  CommandRegistry registry;
+
+  registry.registerCommand(std::make_unique<PingCommand>());
+  registry.registerCommand(std::make_unique<EchoCommand>());
+  registry.registerCommand(std::make_unique<SetCommand>());
+  registry.registerCommand(std::make_unique<GetCommand>());
+
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
@@ -209,7 +155,7 @@ int main(int argc, char **argv)
     std::cout << "New Client Connected! Spawning thread...\n";
 
     // New thread for this client; We use std::thread and pass the function + arguments
-    std::thread client_thread(handleClient, client_fd);
+    std::thread client_thread(handleClient, client_fd, std::ref(db), std::ref(registry));
 
     // Detaching the thread so main can continue running waiting for new clients
     client_thread.detach();
