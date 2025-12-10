@@ -16,6 +16,7 @@
 #include "PingEchoCommand.hpp"
 #include "SetCommand.hpp"
 #include "GetCommand.hpp"
+#include "ListCommands.hpp"
 
 std::vector<std::string> extractArgs(RESPValue &input) {
   if (input.type != RESPType::ARRAY || input.array.empty()) {
@@ -65,9 +66,9 @@ void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry
     std::string response;
 
     if (!cmd) {
-      response = "-ERR unknown command";
+      response = "-ERR unknown command\r\n";
     } else if (args.size() < cmd->min_args()) {
-      response = "-ERR wrong number of arguments";
+      response = "-ERR wrong number of arguments\r\n";
     } else {
         response = cmd->execute(args, db);
     }
@@ -87,6 +88,11 @@ int main(int argc, char **argv)
   registry.registerCommand(std::make_unique<EchoCommand>());
   registry.registerCommand(std::make_unique<SetCommand>());
   registry.registerCommand(std::make_unique<GetCommand>());
+  registry.registerCommand(std::make_unique<RPUSH>());
+  registry.registerCommand(std::make_unique<LPUSH>());
+  registry.registerCommand(std::make_unique<LRANGE>());
+  registry.registerCommand(std::make_unique<LLEN>());
+  registry.registerCommand(std::make_unique<LPOP>());
 
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;
