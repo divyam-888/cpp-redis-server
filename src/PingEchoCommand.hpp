@@ -1,3 +1,16 @@
+#pragma once
+#include <string>
+#include <unordered_map>
+#include <shared_mutex>
+#include <mutex>
+#include <optional>
+#include <chrono>
+#include<variant>
+#include<deque>
+#include<vector>
+#include<algorithm>
+#include <string>
+#include <unordered_map>
 #include "Command.hpp"
 #include "KVStore.hpp"
 

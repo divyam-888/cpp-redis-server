@@ -144,3 +144,39 @@ public:
     }  
 };
 
+class BLPOP : public Command {
+    std::string name() const override { return "BLPOP"; }
+    int min_args() const override { return 3; }
+
+    std::string execute(const std::vector<std::string>& args, KeyValueDatabase& db) {
+        std::vector<std::string> list_keys;
+        for(int i = 1; i < args.size() - 1; i++) {
+            list_keys.push_back(args[i]);
+        }
+
+        double wait_time = 0;
+
+        try {
+            wait_time = std::stod(args.back());
+        } catch (...) {
+            return "-ERR timeout is not a float or out of range\r\n";
+        }
+
+        std::optional<std::pair<std::string, std::string> > result = db.BLPOP(list_keys, wait_time);
+
+        if(result.has_value()) {
+            std::string list = result.value().first;
+            std::string item = result.value().second;
+
+            std::string ans = "*2\r\n";
+
+            ans += "$" + std::to_string(list.length()) + "\r\n" + list + "\r\n";
+            ans += "$" + std::to_string(item.length()) + "\r\n" + item + "\r\n";
+
+            return ans;
+        } else {
+            return "*-1\r\n"; //Null Bulk string
+        }
+    }
+};
+

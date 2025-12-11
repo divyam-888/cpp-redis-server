@@ -92,6 +92,7 @@ int main(int argc, char **argv)
   registry.registerCommand(std::make_unique<LRANGE>());
   registry.registerCommand(std::make_unique<LLEN>());
   registry.registerCommand(std::make_unique<LPOP>());
+  registry.registerCommand(std::make_unique<BLPOP>());
 
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;
