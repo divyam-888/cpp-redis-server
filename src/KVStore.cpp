@@ -53,6 +53,8 @@ int KeyValueDatabase::RPUSH(std::string &list_key, std::vector<std::string> &ite
     RedisList& dq = get<RedisList>(it->second.value);
     std::list<BlockingContext*>& waiters = blocking_map[list_key];
 
+    int handed_off_count = 0;
+
     for(auto item : items) {
         if(!waiters.empty()) {
             BlockingContext* ctx = waiters.front();
@@ -61,6 +63,7 @@ int KeyValueDatabase::RPUSH(std::string &list_key, std::vector<std::string> &ite
             ctx->list = list_key;
             ctx->item = item;
             ctx->cv.notify_one();
+            handed_off_count++;
         } else {
             dq.push_back(item);
         }
@@ -70,7 +73,7 @@ int KeyValueDatabase::RPUSH(std::string &list_key, std::vector<std::string> &ite
         map.erase(it);
     }
 
-    return dq.size();
+    return dq.size() + handed_off_count;
 }
 
 int KeyValueDatabase::LPUSH(std::string &list_key, std::vector<std::string> &items) {
@@ -88,6 +91,8 @@ int KeyValueDatabase::LPUSH(std::string &list_key, std::vector<std::string> &ite
     RedisList& dq = get<RedisList>(it->second.value);
     std::list<BlockingContext*>& waiters = blocking_map[list_key];
 
+    int handed_off_count = 0;
+
     for(auto item : items) {
         if(!waiters.empty()) {
             BlockingContext* ctx = waiters.front();
@@ -96,6 +101,7 @@ int KeyValueDatabase::LPUSH(std::string &list_key, std::vector<std::string> &ite
             ctx->list = list_key;
             ctx->item = item;
             ctx->cv.notify_one();
+            handed_off_count++;
         } else {
             dq.push_front(item);
         }
@@ -105,7 +111,7 @@ int KeyValueDatabase::LPUSH(std::string &list_key, std::vector<std::string> &ite
         map.erase(it);
     }
 
-    return dq.size();
+    return dq.size() + handed_off_count;
 }
 
 std::vector<std::string> KeyValueDatabase::LRANGE(std::string &list_key, int start, int end) {
