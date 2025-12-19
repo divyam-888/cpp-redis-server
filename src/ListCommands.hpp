@@ -145,6 +145,7 @@ public:
 };
 
 class BLPOP : public Command {
+public:
     std::string name() const override { return "BLPOP"; }
     int min_args() const override { return 3; }
 
@@ -181,11 +182,12 @@ class BLPOP : public Command {
 };
 
 class TypeCommand : public Command {
+public:
     std::string name() const override { return "TYPE"; }
     int min_args() const override { return 2; }
 
-    std::string execute(std::vector<std::string>& args, KeyValueDatabase& db) {
-        std::string& key = args[1];
+    std::string execute(const std::vector<std::string>& args, KeyValueDatabase& db) {
+        std::string key = args[1];
         std::string type = db.TYPE(key);
         return "+" + type + "\r\n";
     }
