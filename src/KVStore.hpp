@@ -12,7 +12,7 @@
 #include <list> 
 #include <condition_variable>
 
-enum class ObjType {STRING, LIST, HASH };
+enum class ObjType {STRING, LIST, HASH};
 
 
 using RedisList = std::deque<std::string>;
@@ -47,6 +47,7 @@ public:
     int LLEN(std::string& list_key);
     std::vector<std::string> LPOP(std::string& list_key, int num_remove_item);
     std::optional<std::pair<std::string, std::string> > BLPOP(std::vector<std::string>& list_keys, double wait_time);
+    std::string TYPE(std::string& key);
 };
 
 // Declare that a global instance named 'database' exists somewhere.

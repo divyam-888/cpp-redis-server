@@ -53,6 +53,7 @@ int KeyValueDatabase::RPUSH(std::string &list_key, std::vector<std::string> &ite
     RedisList& dq = get<RedisList>(it->second.value);
     std::list<BlockingContext*>& waiters = blocking_map[list_key];
 
+    //#items which were to be added but weren't as they were popped by blpop
     int handed_off_count = 0;
 
     for(auto item : items) {
@@ -212,4 +213,18 @@ std::optional<std::pair<std::string, std::string> > KeyValueDatabase::BLPOP(std:
     }
 
     return std::nullopt;
+}
+
+std::string KeyValueDatabase::TYPE(std::string& key) {
+    //std::shared_lock<std::shared_mutex> lock(rw_lock);
+    auto it = map.find(key);
+    if(it == map.end()) {
+        return "None";
+    }
+
+    switch(it->second.type) {
+        case ObjType::STRING: return "string";
+        case ObjType::HASH: return "hash";
+        case ObjType::LIST: return "list";
+    }
 }

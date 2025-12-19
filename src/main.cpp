@@ -28,7 +28,7 @@ std::vector<std::string> extractArgs(RESPValue &input) {
     if (item.type == RESPType::ARRAY) {
       // throw exception if nested arrays are given
       throw std::runtime_error("Nested arrays are not supported in commands");
-      // Or return empty to signal failure
+      // or return empty to signal failure
       // return {}; 
     }
     args.push_back(item.value);
@@ -93,6 +93,7 @@ int main(int argc, char **argv)
   registry.registerCommand(std::make_unique<LLEN>());
   registry.registerCommand(std::make_unique<LPOP>());
   registry.registerCommand(std::make_unique<BLPOP>());
+  registry.registerCommand(std::make_unique<TypeCommand>());
 
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;
