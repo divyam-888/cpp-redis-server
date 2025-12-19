@@ -215,16 +215,18 @@ std::optional<std::pair<std::string, std::string> > KeyValueDatabase::BLPOP(std:
     return std::nullopt;
 }
 
-std::string KeyValueDatabase::TYPE(std::string& key) {
+std::string KeyValueDatabase::TypeCommand(std::string& key) {
     //std::shared_lock<std::shared_mutex> lock(rw_lock);
     auto it = map.find(key);
     if(it == map.end()) {
-        return "None";
+        return "none";
     }
 
     switch(it->second.type) {
         case ObjType::STRING: return "string";
         case ObjType::HASH: return "hash";
         case ObjType::LIST: return "list";
+
+        default: return "none";
     }
 }
