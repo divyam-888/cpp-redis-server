@@ -9,14 +9,14 @@
 struct StreamId {
     int64_t ms;
     int64_t seq;
-    bool operator<(const StreamId& other) {
+    bool operator<(const StreamId& other) const {
         if(ms != other.ms) {
             return ms < other.ms;
         }
         return seq < other.seq;
     }
 
-    bool operator==(const StreamId& other) {
+    bool operator==(const StreamId& other) const {
         return (ms == other.ms && seq == other.seq);
     }
 
