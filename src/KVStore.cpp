@@ -227,6 +227,7 @@ std::string KeyValueDatabase::TYPE(std::string& key) {
         case ObjType::STRING: return "string";
         case ObjType::HASH: return "hash";
         case ObjType::LIST: return "list";
+        case ObjType::STREAM: return "stream";
 
         default: return "none";
     }
