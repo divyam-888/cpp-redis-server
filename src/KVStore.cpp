@@ -258,7 +258,7 @@ StreamId KeyValueDatabase::XADD(std::string& stream_key, std::string& stream_id,
     } else {
         size_t dash = stream_id.find('-');
         if (dash == std::string::npos) {
-             try {
+            try {
                 id_param.ms = std::stoll(stream_id);
                 id_param.seq = 0;
             } catch (...) { return {0, -1}; }
@@ -271,4 +271,28 @@ StreamId KeyValueDatabase::XADD(std::string& stream_key, std::string& stream_id,
     }
 
     return stream.add(id_param, fields);
+}
+
+std::vector<StreamEntry> KeyValueDatabase::XRANGE(std::string& stream_key, std::string& start, std::string& end) {
+    StreamId startId, endId;
+    try {
+        startId = StreamId::parse(start, false); 
+        endId = StreamId::parse(end, true);   
+    } catch (...) {
+        // rethrow so wrapper handles the error response
+        throw; 
+    }
+    
+    std::shared_lock<std::shared_mutex> lock(rw_lock);
+    
+    auto it = map.find(stream_key);
+    if(it == map.end()) {
+        return {}; // key doesn't exist so we return empty range
+    } 
+    if(it->second.type != ObjType::STREAM) {
+        throw std::runtime_error("WRONGTYPE");
+    }
+
+    Stream& stream = std::get<Stream>(it->second.value);
+    return stream.range(startId, endId);
 }

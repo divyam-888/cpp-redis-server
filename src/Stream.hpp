@@ -23,6 +23,29 @@ struct StreamId {
     std::string toString () const {
         return std::to_string(ms) + "-" + std::to_string(seq);
     }
+
+    static StreamId parse(const std::string& str, bool is_end_boundary) {
+        StreamId id;
+
+        if (str == "-") return {0, 0};
+        if (str == "+") return {INT64_MAX, INT64_MAX};
+
+        size_t dash = str.find('-');
+    
+        try {
+            if (dash == std::string::npos) {
+                // no sequence given so we take boundary
+                id.ms = std::stoll(str);
+                id.seq = is_end_boundary ? INT64_MAX : 0;
+            } else {
+                id.ms = std::stoll(str.substr(0, dash));
+                id.seq = std::stoll(str.substr(dash + 1));
+            }
+        } catch (const std::exception& e) {
+            throw std::invalid_argument("Invalid Stream ID");
+        }
+        return id;
+    }
 };
 
 struct StreamEntry {
@@ -78,6 +101,16 @@ struct Stream {
         last_id = id;
 
         return id;
+    }
+
+    std::vector<StreamEntry> range(StreamId& start, StreamId& end) {
+        std::vector<StreamEntry> query;
+        auto it = entries.lower_bound(start);
+        while(it != entries.end() && (it->first < end || it->first == end)) {
+            query.push_back(it->second);
+            it++;
+        }
+        return query;
     }
 };
 

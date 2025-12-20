@@ -227,3 +227,44 @@ public:
     }
 };
 
+class XRANGECommand : public Command {
+public:
+    std::string name() const override { return "XRANGE"; }
+    int min_args() const override { return 4; }
+
+    std::string execute(const std::vector<std::string>& args, KeyValueDatabase& db) {
+        std::string stream_key = args[1];
+        std::string start = args[2];
+        std::string end = args[3];
+        try {
+            std::vector<StreamEntry> entries = db.XRANGE(stream_key, start, end);
+            
+            std::string ans = "*" + std::to_string(entries.size()) + "\r\n";
+            
+            for(const auto& entry : entries) {
+                // for each entry it has 2 values: stream_id and the fields (key:value pairs)
+                ans += "*2\r\n";
+                
+                std::string str_id = entry.id.toString();
+                ans += "$" + std::to_string(str_id.length()) + "\r\n" + str_id + "\r\n";
+                
+                // size is fields.size() * 2 because key and value are separate elements
+                ans += "*" + std::to_string(entry.fields.size() * 2) + "\r\n"; 
+                
+                for(const auto& field : entry.fields) {
+                    ans += "$" + std::to_string(field.first.length()) + "\r\n" + field.first + "\r\n";
+                    ans += "$" + std::to_string(field.second.length()) + "\r\n" + field.second + "\r\n";
+                }
+            }
+            return ans;
+
+        } catch (const std::invalid_argument&) {
+            return "-ERR Invalid stream ID specified as stream command argument\r\n";
+        } catch (const std::runtime_error& e) {
+            return "-WRONGTYPE Operation against a key holding the wrong kind of value\r\n";
+        } catch (...) {
+            return "-ERR unknown error\r\n";
+        }
+    }
+};
+

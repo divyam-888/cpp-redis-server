@@ -51,6 +51,7 @@ public:
     std::optional<std::pair<std::string, std::string> > BLPOP(std::vector<std::string>& list_keys, double wait_time);
     std::string TYPE(std::string& key);
     StreamId XADD(std::string& stream_key, std::string& stream_id, std::vector<std::pair<std::string, std::string> >& fields);
+    std::vector<StreamEntry> XRANGE(std::string& stream_key, std::string& start, std::string& end);
 };
 
 // Declare that a global instance named 'database' exists somewhere.

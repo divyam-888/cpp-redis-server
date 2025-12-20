@@ -95,7 +95,7 @@ int main(int argc, char **argv)
   registry.registerCommand(std::make_unique<BLPOP>());
   registry.registerCommand(std::make_unique<TypeCommand>());
   registry.registerCommand(std::make_unique<XADDCommand>());
-
+  registry.registerCommand(std::make_unique<XRANGECommand>());
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
