@@ -11,15 +11,17 @@
 #include <vector>
 #include <list> 
 #include <condition_variable>
+#include "Stream.hpp"
 
-enum class ObjType {STRING, LIST, HASH};
+enum class ObjType {STRING, LIST, HASH, STREAM};
 
 
 using RedisList = std::deque<std::string>;
+using Value = std::variant<std::string, RedisList, Stream>;
 class KeyValueDatabase {
 private:
     struct Entry {
-        std::variant<std::string, RedisList> value;
+        Value value;
         ObjType type;
         long long expiry_at = -1;
     };
@@ -48,6 +50,7 @@ public:
     std::vector<std::string> LPOP(std::string& list_key, int num_remove_item);
     std::optional<std::pair<std::string, std::string> > BLPOP(std::vector<std::string>& list_keys, double wait_time);
     std::string TYPE(std::string& key);
+    StreamId XADD(std::string& stream_key, std::string& stream_id, std::vector<std::pair<std::string, std::string> >& fields);
 };
 
 // Declare that a global instance named 'database' exists somewhere.

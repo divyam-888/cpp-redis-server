@@ -1,4 +1,5 @@
 #include "KVStore.hpp"
+#include "Stream.hpp"
 
 KeyValueDatabase db;
 
@@ -17,7 +18,7 @@ void KeyValueDatabase::SET(const std::string &key, const std::string &value, lon
     {
         expiry = current_time_ms() + px_duration;
     }
-    std::variant<std::string, RedisList> myVar = value;
+    Value myVar = value;
     map[key] = {myVar, ObjType::STRING, expiry};
 }
 
@@ -46,7 +47,7 @@ int KeyValueDatabase::RPUSH(std::string &list_key, std::vector<std::string> &ite
 
     if(it == map.end()) {
         RedisList dq;
-        map[list_key] = {std::variant<std::string, RedisList>(dq), ObjType::LIST, -1};
+        map[list_key] = {Value(dq), ObjType::LIST, -1};
         it = map.find(list_key);
     } 
 
@@ -85,7 +86,7 @@ int KeyValueDatabase::LPUSH(std::string &list_key, std::vector<std::string> &ite
 
     if(it == map.end()) {
         RedisList dq;
-        map[list_key] = {std::variant<std::string, RedisList>(dq), ObjType::LIST, -1};
+        map[list_key] = {Value(dq), ObjType::LIST, -1};
         it = map.find(list_key);
     } 
 
@@ -216,7 +217,7 @@ std::optional<std::pair<std::string, std::string> > KeyValueDatabase::BLPOP(std:
 }
 
 std::string KeyValueDatabase::TYPE(std::string& key) {
-    //std::shared_lock<std::shared_mutex> lock(rw_lock);
+    std::shared_lock<std::shared_mutex> lock(rw_lock);
     auto it = map.find(key);
     if(it == map.end()) {
         return "none";
@@ -229,4 +230,44 @@ std::string KeyValueDatabase::TYPE(std::string& key) {
 
         default: return "none";
     }
+}
+
+StreamId KeyValueDatabase::XADD(std::string& stream_key, std::string& stream_id, std::vector<std::pair<std::string, std::string> >& fields) {
+    std::unique_lock<std::shared_mutex> lock(rw_lock);
+    auto it = map.find(stream_key);
+    if(it == map.end()) {
+        map[stream_key] = {Value(Stream()), ObjType::STREAM, -1};
+        it = map.find(stream_key);
+    } else if(it->second.type != ObjType::STREAM) {
+        return {-1, 0};
+    }
+    
+    Stream& stream = std::get<Stream>(it->second.value);
+    
+    StreamId id_param;
+    
+    if (stream_id == "*") {
+        id_param = {-1, -1}; // auto generate time and sequence part
+    } else if (stream_id.back() == '*') {
+        // auto generate sequence part
+        size_t dash = stream_id.find('-');
+        if (dash == std::string::npos) return {0, -1}; // Format error
+        id_param.ms = std::stoll(stream_id.substr(0, dash));
+        id_param.seq = -1; 
+    } else {
+        size_t dash = stream_id.find('-');
+        if (dash == std::string::npos) {
+             try {
+                id_param.ms = std::stoll(stream_id);
+                id_param.seq = 0;
+            } catch (...) { return {0, -1}; }
+        } else {
+            try {
+                id_param.ms = std::stoll(stream_id.substr(0, dash));
+                id_param.seq = std::stoll(stream_id.substr(dash + 1));
+            } catch (...) { return {0, -1}; }
+        }
+    }
+
+    return stream.add(id_param, fields);
 }

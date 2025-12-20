@@ -193,3 +193,37 @@ public:
     }
 };
 
+class XADDCommand : public Command {
+public:
+    std::string name() const override { return "XADD"; }
+    int min_args() const override { return 5; }
+
+    std::string execute(const std::vector<std::string>& args, KeyValueDatabase& db) {
+        std::string stream_key = args[1];
+        std::string stream_id = args[2];
+        std::vector<std::pair<std::string, std::string> > fields;
+        for(int i = 3; i < args.size(); i += 2) {
+            if(i + 1 == args.size()) {
+                return "-wrong number of arguments for 'xadd' command\r\n";
+            }
+            fields.push_back({args[i], args[i + 1]});
+        }
+
+        StreamId result = db.XADD(stream_key, stream_id, fields);
+
+        // handle errors using magic values
+        if (result.ms == -1) { 
+             return "-WRONGTYPE Operation against a key holding the wrong kind of value\r\n";
+        }
+        if (result.ms == 0 && result.seq == 0) {
+             return "-ERR The ID specified in XADD must be greater than 0-0\r\n";
+        }
+        if (result.ms == 0 && result.seq == -1) {
+             return "-ERR The ID specified in XADD is equal or smaller than the target stream top item\r\n";
+        }
+
+        std::string ans = result.toString();
+        return "$" + std::to_string(ans.length()) + "\r\n" + ans + "\r\n";
+    }
+};
+
