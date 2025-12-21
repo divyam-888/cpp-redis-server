@@ -311,12 +311,10 @@ std::vector<std::pair<std::string, std::vector<StreamEntry>>> KeyValueDatabase::
     std::shared_lock<std::shared_mutex> lock(rw_lock);
 
     for(size_t i = 0; i < keys.size(); i++) {
-        std::cout << "checking " << keys[i] << " at " << threshold_ids[i].toString() << '\n'; 
         auto it = map.find(keys[i]);
         
         //in redis if the key does not exist or is invalid or is empty we do not return it
         if(it == map.end() || it->second.type != ObjType::STREAM) {
-            std::cout << "here\n";
             continue; 
         }
 
@@ -325,11 +323,8 @@ std::vector<std::pair<std::string, std::vector<StreamEntry>>> KeyValueDatabase::
         std::vector<StreamEntry> new_entries = stream.read(count, block, ms, threshold_ids[i]);
 
         if(!new_entries.empty()) {
-            std::cout << "found something\n";
             response.push_back({keys[i], std::move(new_entries)});
-        } else {
-            std::cout << "found nothing\n";
-        }
+        } 
     }
 
     return response;

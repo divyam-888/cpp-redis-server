@@ -273,7 +273,7 @@ class XREADCommand : public Command {
     int min_args() const override { return 4; }
 
     std::string execute(const std::vector<std::string>& args, KeyValueDatabase& db) {
-        int64_t count = INT64_MAX;
+        int count = INT_MAX;
         bool block = false;
         int64_t ms;
         std::vector<std::string> key;
@@ -292,11 +292,9 @@ class XREADCommand : public Command {
         }
 
         if (args[pos] != "streams") {
-            std::cout << "error occurred at streams\n";
             return "-ERR syntax error\r\n"; 
         }
 
-        //std::cout << "no error occurred at streams\n";
         pos++;
 
         int num_keys = (int)args.size() - pos;
@@ -313,10 +311,9 @@ class XREADCommand : public Command {
 
         try {
             std::vector<std::pair<std::string, std::vector<StreamEntry> > > entries = db.XREAD(count, block, ms, key, id);
-
             //XREAD returns a vector of pair of stream_key and vector of streamEntry where each entry corresponds to a stream id and the key-value pairs added to this stream
+            
             if(entries.empty()) {
-                std::cout << "empty lol\n";
                 return "$-1\r\n";
             }
 
