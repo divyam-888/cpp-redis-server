@@ -121,7 +121,7 @@ struct Stream {
         if(it == entries.end()) {
             std::cout << "stream empty :P\n";
         }
-        if(cnt < count) {
+        if(cnt >= count) {
             std::cout << cnt << " < " << count << '\n';
         }
         while(it != entries.end() && cnt < count) {
