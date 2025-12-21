@@ -117,6 +117,12 @@ struct Stream {
         std::vector<StreamEntry> query;
         auto it = entries.upper_bound(start);
         int cnt = 0;
+        if(it == entries.end()) {
+            std::cout << "stream empty :P\n";
+        }
+        if(cnt < count) {
+            std::cout << cnt << " < " << count << '\n';
+        }
         while(it != entries.end() && cnt < count) {
             query.push_back(it->second);
             it++;
