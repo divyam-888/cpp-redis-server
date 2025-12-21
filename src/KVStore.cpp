@@ -323,9 +323,10 @@ std::vector<std::pair<std::string, std::vector<StreamEntry>>> KeyValueDatabase::
         std::vector<StreamEntry> new_entries = stream.read(count, block, ms, threshold_ids[i]);
 
         if(!new_entries.empty()) {
+            std::cout << "found something\n";
             response.push_back({keys[i], std::move(new_entries)});
         }
     }
-    
+
     return response;
 }

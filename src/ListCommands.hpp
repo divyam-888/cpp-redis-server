@@ -296,7 +296,7 @@ class XREADCommand : public Command {
             return "-ERR syntax error\r\n"; 
         }
 
-        std::cout << "no error occurred at streams\n";
+        //std::cout << "no error occurred at streams\n";
         pos++;
 
         int num_keys = (int)args.size() - pos;
