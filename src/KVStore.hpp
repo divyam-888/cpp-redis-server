@@ -52,6 +52,7 @@ public:
     std::string TYPE(std::string& key);
     StreamId XADD(std::string& stream_key, std::string& stream_id, std::vector<std::pair<std::string, std::string> >& fields);
     std::vector<StreamEntry> XRANGE(std::string& stream_key, std::string& start, std::string& end);
+    std::vector<std::pair<std::string, std::vector<StreamEntry> > > XREAD(int count, bool block, int64_t ms, const std::vector<std::string>& keys, const std::vector<std::string>& ids_str);
 };
 
 // Declare that a global instance named 'database' exists somewhere.

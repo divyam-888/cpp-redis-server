@@ -45,7 +45,7 @@ struct StreamId {
             throw std::invalid_argument("Invalid Stream ID");
         }
         return id;
-    }
+    } 
 };
 
 struct StreamEntry {
@@ -112,5 +112,18 @@ struct Stream {
         }
         return query;
     }
+
+    std::vector<StreamEntry> read(int count, bool block, int64_t ms, StreamId& start) {
+        std::vector<StreamEntry> query;
+        auto it = entries.upper_bound(start);
+        int cnt = 0;
+        while(it != entries.end() && cnt < count) {
+            query.push_back(it->second);
+            it++;
+            cnt++;
+        }
+        return query;
+    }
+
 };
 

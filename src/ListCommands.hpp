@@ -268,3 +268,84 @@ public:
     }
 };
 
+class XREADCommand : public Command {
+    std::string name() const override { return "XREAD"; }
+    int min_args() const override { return 4; }
+
+    std::string execute(const std::vector<std::string>& args, KeyValueDatabase& db) {
+        int count = INT64_MAX;
+        bool block = false;
+        int64_t ms;
+        std::vector<std::string> key;
+        std::vector<std::string> id;
+        
+        int pos = 1;
+        if(args[pos] == "COUNT") {
+            count = stoll(args[pos + 1]);
+            pos += 2;
+        }
+
+        if(args[pos] == "BLOCK") {
+            block = true;
+            ms = stoll(args[pos + 1]);
+            pos += 2;
+        }
+
+        if (args[pos] != "STREAMS") {
+            return "-ERR syntax error\r\n"; 
+        }
+
+        pos++;
+
+        int num_keys = (int)args.size() - pos;
+        if(num_keys % 2 != 0) {
+            return "-ERR wrong number of arguments for XREAD command\r\n";
+        }
+
+        for(int k = pos; k < pos + num_keys / 2; k++) {
+            key.push_back(args[k]);
+        }
+        for(int k = pos + num_keys / 2; k < args.size(); k++) {
+            id.push_back(args[k]);
+        }
+
+        try {
+            std::vector<std::pair<std::string, std::vector<StreamEntry> > > entries = db.XREAD(count, block, ms, key, id);
+
+            //XREAD returns a vector of pair of stream_key and vector of streamEntry where each entry corresponds to a stream id and the key-value pairs added to this stream
+            if(entries.empty()) return "$-1\r\n";
+                        
+            std::string ans = "*" + std::to_string(entries.size()) + "\r\n";
+
+            for(auto& [stream_key, stream_entry] : entries) {
+                ans += "*2\r\n";
+                ans += "$" + std::to_string(stream_key.length()) + "\r\n" + stream_key + "\r\n";
+
+                ans += "*" + std::to_string(stream_entry.size()) + "\r\n";
+            
+                for(const auto& entry : stream_entry) {
+                    // for each entry it has 2 values: stream_id and the fields (key:value pairs)
+                    ans += "*2\r\n";
+                
+                    std::string stream_id = entry.id.toString();
+                    ans += "$" + std::to_string(stream_id.length()) + "\r\n" + stream_id + "\r\n";
+                
+                    // size is fields.size() * 2 because key and value are separate elements
+                    ans += "*" + std::to_string(entry.fields.size() * 2) + "\r\n"; 
+                
+                    for(const auto& field : entry.fields) {
+                        ans += "$" + std::to_string(field.first.length()) + "\r\n" + field.first + "\r\n";
+                        ans += "$" + std::to_string(field.second.length()) + "\r\n" + field.second + "\r\n";
+                    }
+                }
+            }
+
+            return ans;
+        } catch (const std::invalid_argument&) {
+            return "-ERR Invalid stream ID specified as stream command argument\r\n";
+        } catch (const std::runtime_error& e) {
+            return "-WRONGTYPE Operation against a key holding the wrong kind of value\r\n";
+        }
+    }
+};
+

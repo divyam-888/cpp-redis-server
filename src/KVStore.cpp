@@ -296,3 +296,36 @@ std::vector<StreamEntry> KeyValueDatabase::XRANGE(std::string& stream_key, std::
     Stream& stream = std::get<Stream>(it->second.value);
     return stream.range(startId, endId);
 }
+
+std::vector<std::pair<std::string, std::vector<StreamEntry>>> KeyValueDatabase::XREAD(int count, bool block, int64_t ms, const std::vector<std::string>& keys, const std::vector<std::string>& ids_str) 
+{
+    std::vector<StreamId> threshold_ids;
+    for(const auto& id : ids_str) {
+        threshold_ids.push_back(StreamId::parse(id, false));
+    }
+
+    std::vector<std::pair<std::string, std::vector<StreamEntry>>> response;
+
+    // blocking (add in future)
+
+    std::shared_lock<std::shared_mutex> lock(rw_lock);
+
+    for(size_t i = 0; i < keys.size(); i++) {
+        auto it = map.find(keys[i]);
+        
+        //in redis if the key does not exist or is invalid or is empty we do not return it
+        if(it == map.end() || it->second.type != ObjType::STREAM) {
+            continue; 
+        }
+
+        Stream& stream = std::get<Stream>(it->second.value);
+        
+        std::vector<StreamEntry> new_entries = stream.read(count, block, ms, threshold_ids[i]);
+
+        if(!new_entries.empty()) {
+            response.push_back({keys[i], std::move(new_entries)});
+        }
+    }
+    
+    return response;
+}
