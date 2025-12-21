@@ -114,6 +114,7 @@ struct Stream {
     }
 
     std::vector<StreamEntry> read(int count, bool block, int64_t ms, StreamId& start) {
+        std::cout << "entering steam.hpp\n";
         std::vector<StreamEntry> query;
         auto it = entries.upper_bound(start);
         int cnt = 0;
@@ -124,10 +125,13 @@ struct Stream {
             std::cout << cnt << " < " << count << '\n';
         }
         while(it != entries.end() && cnt < count) {
+            std::cout << cnt << "\n";
             query.push_back(it->second);
             it++;
             cnt++;
         }
+
+        std::cout << query.size() << " exiting stream.hpp\n";
         return query;
     }
 
