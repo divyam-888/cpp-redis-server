@@ -273,7 +273,7 @@ class XREADCommand : public Command {
     int min_args() const override { return 4; }
 
     std::string execute(const std::vector<std::string>& args, KeyValueDatabase& db) {
-        int count = INT64_MAX;
+        int64_t count = INT64_MAX;
         bool block = false;
         int64_t ms;
         std::vector<std::string> key;
@@ -292,6 +292,7 @@ class XREADCommand : public Command {
         }
 
         if (args[pos] != "streams") {
+            std::cout << "error occurred at streams\n";
             return "-ERR syntax error\r\n"; 
         }
 
