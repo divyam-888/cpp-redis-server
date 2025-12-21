@@ -291,7 +291,7 @@ class XREADCommand : public Command {
             pos += 2;
         }
 
-        if (args[pos] != "STREAMS") {
+        if (args[pos] != "streams") {
             return "-ERR syntax error\r\n"; 
         }
 
@@ -314,7 +314,7 @@ class XREADCommand : public Command {
 
             //XREAD returns a vector of pair of stream_key and vector of streamEntry where each entry corresponds to a stream id and the key-value pairs added to this stream
             if(entries.empty()) return "$-1\r\n";
-                        
+
             std::string ans = "*" + std::to_string(entries.size()) + "\r\n";
 
             for(auto& [stream_key, stream_entry] : entries) {
