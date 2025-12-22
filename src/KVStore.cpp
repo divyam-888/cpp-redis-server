@@ -234,7 +234,7 @@ std::string KeyValueDatabase::TYPE(std::string& key) {
 }
 
 StreamId KeyValueDatabase::XADD(std::string& stream_key, std::string& stream_id, std::vector<std::pair<std::string, std::string> >& fields) {
-    std::unique_lock<std::shared_mutex> lock(rw_lock);
+    std::unique_lock<std::shared_mutex> db_lock(rw_lock);
     auto it = map.find(stream_key);
     if(it == map.end()) {
         map[stream_key] = {Value(Stream()), ObjType::STREAM, -1};
@@ -273,7 +273,7 @@ StreamId KeyValueDatabase::XADD(std::string& stream_key, std::string& stream_id,
     StreamId new_id = stream.add(id_param, fields);
 
     //check is some client is waiting for this stream entry
-    std::lock_guard<std::mutex> lock(stream_blocking_mutex);
+    std::lock_guard<std::mutex> stream_lock(stream_blocking_mutex);
     if(blocking_stream_map.count(stream_key)) {
         std::list<BlockingStreamNode>& waiters = blocking_stream_map[stream_key];
         for(auto& node : waiters) {
@@ -320,7 +320,7 @@ std::vector<std::pair<std::string, std::vector<StreamEntry>>> KeyValueDatabase::
 
     //scope for read lock
     {
-        std::shared_lock<std::shared_mutex> lock(rw_lock); 
+        std::shared_lock<std::shared_mutex> db_lock(rw_lock); 
         
         for(size_t i = 0; i < keys.size(); i++) {
             // resolve $
