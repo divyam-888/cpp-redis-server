@@ -52,14 +52,14 @@ int KeyValueDatabase::RPUSH(std::string &list_key, std::vector<std::string> &ite
     } 
 
     RedisList& dq = get<RedisList>(it->second.value);
-    std::list<BlockingContext*>& waiters = blocking_map[list_key];
+    std::list<BlockingContextList*>& waiters = blocking_map[list_key];
 
     //#items which were to be added but weren't as they were popped by blpop
     int handed_off_count = 0;
 
     for(auto item : items) {
         if(!waiters.empty()) {
-            BlockingContext* ctx = waiters.front();
+            BlockingContextList* ctx = waiters.front();
             waiters.pop_front();
             ctx->is_fulfilled = true;
             ctx->list = list_key;
@@ -91,13 +91,13 @@ int KeyValueDatabase::LPUSH(std::string &list_key, std::vector<std::string> &ite
     } 
 
     RedisList& dq = get<RedisList>(it->second.value);
-    std::list<BlockingContext*>& waiters = blocking_map[list_key];
+    std::list<BlockingContextList*>& waiters = blocking_map[list_key];
 
     int handed_off_count = 0;
 
     for(auto item : items) {
         if(!waiters.empty()) {
-            BlockingContext* ctx = waiters.front();
+            BlockingContextList* ctx = waiters.front();
             waiters.pop_front();
             ctx->is_fulfilled = true;
             ctx->list = list_key;
@@ -185,7 +185,7 @@ std::optional<std::pair<std::string, std::string> > KeyValueDatabase::BLPOP(std:
     }
 
     //No non-empty list, block this thread and let it sleep
-    BlockingContext ctx;
+    BlockingContextList ctx;
 
     for(std::string& key : list_keys) {
         blocking_map[key].push_back(&ctx);
@@ -270,7 +270,23 @@ StreamId KeyValueDatabase::XADD(std::string& stream_key, std::string& stream_id,
         }
     }
 
-    return stream.add(id_param, fields);
+    StreamId new_id = stream.add(id_param, fields);
+
+    //check is some client is waiting for this stream entry
+    std::lock_guard<std::mutex> lock(stream_blocking_mutex);
+    if(blocking_stream_map.count(stream_key)) {
+        std::list<BlockingStreamNode>& waiters = blocking_stream_map[stream_key];
+        for(auto& node : waiters) {
+            if(node.threshold_id < id_param) {
+                //There can be multiple streams waiting to notify this client so we first acquire lock to the clients block controller
+                std::lock_guard<std::mutex> client_lock(node.controller->lock);
+                node.controller->is_fulfilled = true;
+                node.controller->cv.notify_one();
+            }
+        }
+    }
+
+    return new_id;
 }
 
 std::vector<StreamEntry> KeyValueDatabase::XRANGE(std::string& stream_key, std::string& start, std::string& end) {
@@ -297,35 +313,92 @@ std::vector<StreamEntry> KeyValueDatabase::XRANGE(std::string& stream_key, std::
     return stream.range(startId, endId);
 }
 
-std::vector<std::pair<std::string, std::vector<StreamEntry>>> KeyValueDatabase::XREAD(int count, bool block, int64_t ms, const std::vector<std::string>& keys, const std::vector<std::string>& ids_str) 
-{
+std::vector<std::pair<std::string, std::vector<StreamEntry>>> KeyValueDatabase::XREAD(int count, bool block, int64_t ms, const std::vector<std::string>& keys, const std::vector<std::string>& ids_str) { 
+    // we need to resolve '$' and also store them incase for retry later 
+    std::vector<std::string> resolved_ids_str = ids_str; 
     std::vector<StreamId> threshold_ids;
-    for(const auto& id : ids_str) {
-        threshold_ids.push_back(StreamId::parse(id, false));
-    }
 
-    std::vector<std::pair<std::string, std::vector<StreamEntry>>> response;
-
-    // blocking (add in future)
-
-    std::shared_lock<std::shared_mutex> lock(rw_lock);
-
-    for(size_t i = 0; i < keys.size(); i++) {
-        auto it = map.find(keys[i]);
+    //scope for read lock
+    {
+        std::shared_lock<std::shared_mutex> lock(rw_lock); 
         
-        //in redis if the key does not exist or is invalid or is empty we do not return it
-        if(it == map.end() || it->second.type != ObjType::STREAM) {
-            continue; 
+        for(size_t i = 0; i < keys.size(); i++) {
+            // resolve $
+            if (ids_str[i] == "$") {
+                auto it = map.find(keys[i]);
+                if (it != map.end() && it->second.type == ObjType::STREAM) {
+                    Stream& stream = std::get<Stream>(it->second.value);
+                    resolved_ids_str[i] = stream.last_id.toString(); 
+                } else {
+                    resolved_ids_str[i] = "0-0"; 
+                }
+            }
+            threshold_ids.push_back(StreamId::parse(resolved_ids_str[i], false));
         }
 
-        Stream& stream = std::get<Stream>(it->second.value);
-        
-        std::vector<StreamEntry> new_entries = stream.read(count, block, ms, threshold_ids[i]);
+        std::vector<std::pair<std::string, std::vector<StreamEntry>>> response;
+        for(size_t i = 0; i < keys.size(); i++) {
+            auto it = map.find(keys[i]);
+            if(it == map.end() || it->second.type != ObjType::STREAM) continue;
 
-        if(!new_entries.empty()) {
-            response.push_back({keys[i], std::move(new_entries)});
-        } 
+            Stream& stream = std::get<Stream>(it->second.value);
+            std::vector<StreamEntry> new_entries = stream.read(count, block, ms, threshold_ids[i]);
+
+            if(!new_entries.empty()) {
+                response.push_back({keys[i], std::move(new_entries)});
+            }
+        }
+
+        if(!response.empty() || !block) {
+            return response;
+        }
+        
+    } // db locks goes out of scope, and is released
+    
+
+    /* Unlike BLPOP here for each key we have a unique parameter: stream_id, so we need a different blocking context for each 
+    instead of just creating a separate context with its own cv and fulfilled bool we create a controller which contains cv and bool as
+    they are common for each key. For the unique parameter we create a new struct which hold the threshold id and a pointer to this controller struct
+    (which contains common info). Since there are multiple streams which may try to update the controller we also need a mutex lock for it */
+    BlockingStreamController controller;
+    std::list<std::pair<std::string, std::list<BlockingStreamNode>::iterator>> my_iterators;
+
+    {
+        std::lock_guard<std::mutex> map_lock(stream_blocking_mutex); // lock stream blocking map
+        
+        for(size_t i = 0; i < keys.size(); i++) {
+            BlockingStreamNode node;
+            node.threshold_id = threshold_ids[i]; // use resolved ids (removed $)
+            node.controller = &controller;
+            
+            blocking_stream_map[keys[i]].push_back(node);
+            auto it = std::prev(blocking_stream_map[keys[i]].end());
+            my_iterators.push_back({keys[i], it});
+        }
     }
 
-    return response;
+    // sleep untill timeout or woke up by another thread. no DB locks are held here. safe to sleep.
+    std::unique_lock<std::mutex> thread_lock(controller.lock);
+    if(ms > 0) {
+        controller.cv.wait_for(thread_lock, std::chrono::milliseconds(ms), 
+                               [&]{ return controller.is_fulfilled; });
+    } else {
+        controller.cv.wait(thread_lock, [&]{ return controller.is_fulfilled; });
+    }
+
+    //clean the stream blocking map to remove the current thread from blocking list of all stream keys
+    {
+        std::lock_guard<std::mutex> map_lock(stream_blocking_mutex);
+        for (auto& [key, it] : my_iterators) {
+            if (blocking_stream_map.count(key)) {
+                blocking_stream_map[key].erase(it);
+                if (blocking_stream_map[key].empty()) {
+                    blocking_stream_map.erase(key);
+                }
+            }
+        }
+    }
+
+    // we need to pass resolved ids, if we pass ids_str (containing $), it will resolve to the new id and miss the data.
+    return XREAD(count, false, 0, keys, resolved_ids_str);
 }

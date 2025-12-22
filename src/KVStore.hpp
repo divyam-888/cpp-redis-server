@@ -26,16 +26,30 @@ private:
         long long expiry_at = -1;
     };
 
-    //Store info about sleeping clients
-    struct BlockingContext {
+    //Store info about sleeping clients waiting for list
+    struct BlockingContextList {
         std::condition_variable_any cv; //The conditional variable to wake/notify the client
         bool is_fulfilled = false; //Updated by RPUSH/LPUSH when the list l is being updated and it finds a sleeping client blocking context in the list associated with blocking_map[l]
         std::string list; //Stores the name of list from which the client pops the value
         std::string item; //Stores the popped item
     };
 
-    std::unordered_map<std::string, std::list<BlockingContext*> > blocking_map; // stores for each list: Blocking Context of the clients waiting for it
+    //Store info about sleeping clients waiting for stream
+    struct BlockingStreamController {
+        std::mutex lock;
+        std::condition_variable_any cv;
+        bool is_fulfilled = false;
+    };
+
+    struct BlockingStreamNode {
+        StreamId threshold_id;
+        BlockingStreamController* controller;
+    };
+
+    std::unordered_map<std::string, std::list<BlockingContextList*> > blocking_map; // stores for each list: Blocking Context of the clients waiting for it
+    std::unordered_map<std::string, std::list<BlockingStreamNode> >blocking_stream_map; 
     std::unordered_map<std::string, Entry> map;
+    std::mutex stream_blocking_mutex; // mutex for blocking global stream map which contains list of waiters for each stream_key
     std::shared_mutex rw_lock; // Unlike std::mutex, which can be acquired only by one user, shared_mutex can be acquired by multiple users TO READ, it has to be uniquely acquired to WRITE
 
     long long current_time_ms();
