@@ -280,12 +280,12 @@ class XREADCommand : public Command {
         std::vector<std::string> id;
         
         int pos = 1;
-        if(args[pos] == "COUNT") {
+        if(args[pos] == "count") {
             count = stoll(args[pos + 1]);
             pos += 2;
         }
 
-        if(args[pos] == "BLOCK") {
+        if(args[pos] == "block") {
             block = true;
             ms = stoll(args[pos + 1]);
             pos += 2;
@@ -310,10 +310,12 @@ class XREADCommand : public Command {
         }
 
         try {
+            std::cout << "Block = " << block << " for " << ms << '\n';
             std::vector<std::pair<std::string, std::vector<StreamEntry> > > entries = db.XREAD(count, block, ms, key, id);
             //XREAD returns a vector of pair of stream_key and vector of streamEntry where each entry corresponds to a stream id and the key-value pairs added to this stream
             
             if(entries.empty()) {
+                std::cout << "here\n";
                 return "*-1\r\n";
             }
 
