@@ -402,3 +402,36 @@ std::vector<std::pair<std::string, std::vector<StreamEntry>>> KeyValueDatabase::
     // we need to pass resolved ids, if we pass ids_str (containing $), it will resolve to the new id and miss the data.
     return XREAD(count, false, 0, keys, resolved_ids_str);
 }
+
+std::optional<long long> KeyValueDatabase::INCR(std::string& key) {
+    std::unique_lock<std::shared_mutex> db_lock(rw_lock);
+    auto it = map.find(key);
+    
+    if(it == map.end()) {
+        map[key] = {1LL, ObjType::STRING, -1};
+        return 1;
+    } 
+
+    Entry& obj = it->second;
+
+    if(obj.type != ObjType::STRING) {
+        return std::nullopt;
+    }
+
+    try {
+        if(std::holds_alternative<long long>(obj.value)) {
+            long long& val = std::get<long long>(obj.value);
+            if (val == LLONG_MAX) throw std::out_of_range("overflow");
+            return ++val;
+        } else {
+            std::string& str_val = std::get<std::string>(obj.value);
+            long long val = std::stoll(str_val);
+            val++;
+            obj.value = val;
+            return val;
+        }
+    } catch(...) {
+        throw std::invalid_argument("value is not an integer");
+    }
+
+}

@@ -353,3 +353,27 @@ class XREADCommand : public Command {
     }
 };
 
+class IncrementCommand : public Command {
+public:
+    std::string name() const override { return "INCR"; }
+    int min_args() const override { return 2; }
+
+    std::string execute(const std::vector<std::string>& args, KeyValueDatabase& db) {
+        std::string key = args[1];
+        try {
+            std::optional<long long> opt = db.INCR(key);
+            if(opt.has_value()) {
+                long long val = opt.value();
+                std::string str_val = std::to_string(val);
+                return ":" + str_val + "\r\n";
+            } else {
+                return "-WRONGTYPE Operation against a key holding the wrong kind of value\r\n";
+            }
+        } catch(const std::invalid_argument&) {
+            return "-ERR value is not an integer or out of range\r\n";
+        } catch (const std::out_of_range&) {
+            return "-ERR value is not an integer or out of range\r\n";
+        }
+    }
+};
+
