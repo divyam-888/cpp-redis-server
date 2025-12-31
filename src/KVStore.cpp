@@ -35,6 +35,11 @@ std::optional<std::string> KeyValueDatabase::GET(const std::string &key)
         map.erase(it); // key exists but has expired
         return std::nullopt;
     }
+
+    if(std::holds_alternative<long long>(it->second.value)) {
+        long long& val = std::get<long long>(it->second.value);
+        return std::to_string(val);
+    }
     
     return get<std::string>(it->second.value);
 }
