@@ -16,6 +16,7 @@
 #include "PingEchoCommand.hpp"
 #include "GetSetCommand.hpp"
 #include "ListCommands.hpp"
+#include "ClientContext.hpp"
 
 std::vector<std::string> extractArgs(RESPValue &input) {
   if (input.type != RESPType::ARRAY || input.array.empty()) {
@@ -39,6 +40,7 @@ std::vector<std::string> extractArgs(RESPValue &input) {
 void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry)
 {
   char buffer[1024];
+  ClientContext context(client_fd);
 
   while (true)
   {
@@ -69,7 +71,12 @@ void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry
     } else if (args.size() < cmd->min_args()) {
       response = "-ERR wrong number of arguments\r\n";
     } else {
-      response = cmd->execute(args, db);
+      if(context.in_transaction && cmd->name() != "EXEC" && cmd->name() != "DISCARD") {
+        response = "+QUEUED\r\n";
+        context.commandQueue.push_back({cmd, std::move(args)});
+      } else {
+        response = cmd->execute(context, args, db, true);
+      }
     }
 
     send(client_fd, response.data(), response.length(), 0);
@@ -98,6 +105,9 @@ int main(int argc, char **argv)
   registry.registerCommand(std::make_unique<XRANGECommand>());
   registry.registerCommand(std::make_unique<XREADCommand>());
   registry.registerCommand(std::make_unique<IncrementCommand>());
+  registry.registerCommand(std::make_unique<MultiCommand>());
+  registry.registerCommand(std::make_unique<ExecCommand>());
+  registry.registerCommand(std::make_unique<DiscardCommand>());
   
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;

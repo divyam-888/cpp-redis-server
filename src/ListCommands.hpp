@@ -14,6 +14,8 @@
 #include <optional>
 #include "Command.hpp"
 #include "KVStore.hpp"
+#include "ClientContext.hpp"
+
 
 class RPUSH : public Command
 {
@@ -21,7 +23,7 @@ public:
     std::string name() const override { return "RPUSH"; }
     int min_args() const override { return 3; }
 
-    std::string execute(const std::vector<std::string> &args, KeyValueDatabase &db) override
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
         //args: RPUSH list_key item1 item2...
         std::string list_key = args[1];
@@ -30,7 +32,7 @@ public:
 
         for(size_t i = 2; i < args.size(); i++) items.push_back(args[i]);
 
-        int size_list = db.RPUSH(list_key, items);
+        int size_list = db.RPUSH(list_key, items, acquire_lock);
 
         if(size_list == -1) {
             return "-ERR WRONGTYPE Operation against a key holding the wrong kind of value\r\n";
@@ -46,7 +48,7 @@ public:
     std::string name() const override { return "LPUSH"; }
     int min_args() const override { return 3; }
 
-    std::string execute(const std::vector<std::string> &args, KeyValueDatabase &db) override
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
         //args: LPUSH list_key item1 item2...
         std::string list_key = args[1];
@@ -55,7 +57,7 @@ public:
 
         for(size_t i = 2; i < args.size(); i++) items.push_back(args[i]);
 
-        int size_list = db.LPUSH(list_key, items);
+        int size_list = db.LPUSH(list_key, items, acquire_lock);
 
         if(size_list == -1) {
             return "-ERR WRONGTYPE Operation against a key holding the wrong kind of value\r\n";
@@ -71,7 +73,7 @@ public:
     std::string name() const override { return "LRANGE"; }
     int min_args() const override { return 4; }
 
-    std::string execute(const std::vector<std::string> &args, KeyValueDatabase &db) override
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
         //args: LRANGE list_key st en
         std::string list_key = args[1];
@@ -83,7 +85,7 @@ public:
         } catch (...) {
             return "-ERR value is not an integer or out of range\r\n";
         }
-        std::vector<std::string> items = db.LRANGE(list_key, start, end);
+        std::vector<std::string> items = db.LRANGE(list_key, start, end, acquire_lock);
         
         std::string ans = "*" + std::to_string(items.size()) + "\r\n";
         for(const auto& str : items) {
@@ -99,11 +101,11 @@ public:
     std::string name() const override { return "LLEN"; }
     int min_args() const override { return 2; }
 
-    std::string execute(const std::vector<std::string> &args, KeyValueDatabase &db) override
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
         //args: LLEN list_key
         std::string list_key = args[1];
-        int length_list = db.LLEN(list_key);
+        int length_list = db.LLEN(list_key, acquire_lock);
         return ":" + std::to_string(length_list) + "\r\n";
     }  
 };
@@ -114,7 +116,7 @@ public:
     std::string name() const override { return "LPOP"; }
     int min_args() const override { return 2; }
 
-    std::string execute(const std::vector<std::string> &args, KeyValueDatabase &db) override
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
         //args: LPOP list_key number
         std::string list_key = args[1];
@@ -128,7 +130,7 @@ public:
             }
         }
 
-        std::vector<std::string> items = db.LPOP(list_key, num_remove_item);
+        std::vector<std::string> items = db.LPOP(list_key, num_remove_item, acquire_lock);
 
         if(items.empty()) {
             return "$-1\r\n";
@@ -149,7 +151,8 @@ public:
     std::string name() const override { return "BLPOP"; }
     int min_args() const override { return 3; }
 
-    std::string execute(const std::vector<std::string>& args, KeyValueDatabase& db) {
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
+    {
         std::vector<std::string> list_keys;
         for(int i = 1; i < args.size() - 1; i++) {
             list_keys.push_back(args[i]);
@@ -163,7 +166,7 @@ public:
             return "-ERR timeout is not a float or out of range\r\n";
         }
 
-        std::optional<std::pair<std::string, std::string> > result = db.BLPOP(list_keys, wait_time);
+        std::optional<std::pair<std::string, std::string> > result = db.BLPOP(list_keys, wait_time, acquire_lock);
 
         if(result.has_value()) {
             std::string list = result.value().first;
@@ -186,9 +189,10 @@ public:
     std::string name() const override { return "TYPE"; }
     int min_args() const override { return 2; }
 
-    std::string execute(const std::vector<std::string>& args, KeyValueDatabase& db) {
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
+    {
         std::string key = args[1];
-        std::string type = db.TYPE(key);
+        std::string type = db.TYPE(key, acquire_lock);
         return "+" + type + "\r\n";
     }
 };
@@ -198,7 +202,8 @@ public:
     std::string name() const override { return "XADD"; }
     int min_args() const override { return 5; }
 
-    std::string execute(const std::vector<std::string>& args, KeyValueDatabase& db) {
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
+    {
         std::string stream_key = args[1];
         std::string stream_id = args[2];
         std::vector<std::pair<std::string, std::string> > fields;
@@ -209,7 +214,7 @@ public:
             fields.push_back({args[i], args[i + 1]});
         }
 
-        StreamId result = db.XADD(stream_key, stream_id, fields);
+        StreamId result = db.XADD(stream_key, stream_id, fields, acquire_lock);
 
         // handle errors using magic values
         if (result.ms == -1) { 
@@ -232,12 +237,13 @@ public:
     std::string name() const override { return "XRANGE"; }
     int min_args() const override { return 4; }
 
-    std::string execute(const std::vector<std::string>& args, KeyValueDatabase& db) {
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
+    {
         std::string stream_key = args[1];
         std::string start = args[2];
         std::string end = args[3];
         try {
-            std::vector<StreamEntry> entries = db.XRANGE(stream_key, start, end);
+            std::vector<StreamEntry> entries = db.XRANGE(stream_key, start, end, acquire_lock);
             
             std::string ans = "*" + std::to_string(entries.size()) + "\r\n";
             
@@ -272,7 +278,8 @@ class XREADCommand : public Command {
     std::string name() const override { return "XREAD"; }
     int min_args() const override { return 4; }
 
-    std::string execute(const std::vector<std::string>& args, KeyValueDatabase& db) {
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
+    {
         int count = INT_MAX;
         bool block = false;
         int64_t ms;
@@ -311,7 +318,7 @@ class XREADCommand : public Command {
 
         try {
             std::cout << "Block = " << block << " for " << ms << '\n';
-            std::vector<std::pair<std::string, std::vector<StreamEntry> > > entries = db.XREAD(count, block, ms, key, id);
+            std::vector<std::pair<std::string, std::vector<StreamEntry> > > entries = db.XREAD(count, block, ms, key, id, acquire_lock);
             //XREAD returns a vector of pair of stream_key and vector of streamEntry where each entry corresponds to a stream id and the key-value pairs added to this stream
             
             if(entries.empty()) {
@@ -358,10 +365,11 @@ public:
     std::string name() const override { return "INCR"; }
     int min_args() const override { return 2; }
 
-    std::string execute(const std::vector<std::string>& args, KeyValueDatabase& db) {
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
+    {
         std::string key = args[1];
         try {
-            std::optional<long long> opt = db.INCR(key);
+            std::optional<long long> opt = db.INCR(key, acquire_lock);
             if(opt.has_value()) {
                 long long val = opt.value();
                 std::string str_val = std::to_string(val);
@@ -374,6 +382,57 @@ public:
         } catch (const std::out_of_range&) {
             return "-ERR value is not an integer or out of range\r\n";
         }
+    }
+};
+
+class MultiCommand : public Command {
+public:
+    std::string name() const override { return "MULTI"; }
+    int min_args() const override { return 1; }
+
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
+        if(context.in_transaction) {
+            return "-ERR MULTI calls can not be nested\r\n";
+        }
+        context.in_transaction = true;
+        return "+OK\r\n";
+    }
+};
+
+class ExecCommand : public Command {
+public:
+    std::string name() const override { return "EXEC"; }
+    int min_args() const override { return 1; }
+
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
+        if(!context.in_transaction) {
+            return "-ERR EXEC without MULTI\r\n";
+        }
+
+        std::vector<std::string> results = db.EXEC(context.commandQueue, context, db, acquire_lock);
+        
+        context.reset_transaction();
+        
+        std::string resp = "*" + std::to_string(results.size()) + "\r\n";
+        for(auto& result : results) resp += result;
+
+        return resp;
+    }
+};
+
+class DiscardCommand : public Command {
+public:
+    std::string name() const override { return "DISCARD"; }
+    int min_args() const override { return 1; }
+
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
+        if(!context.in_transaction) {
+            return "-ERR DISCARD without MULTI\r\n";
+        }
+        
+        context.reset_transaction();
+
+        return "+OK\r\n";
     }
 };
 

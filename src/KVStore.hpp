@@ -12,6 +12,7 @@
 #include <list> 
 #include <condition_variable>
 #include "Stream.hpp"
+#include "ClientContext.hpp"
 
 enum class ObjType {STRING, LIST, HASH, STREAM};
 
@@ -54,19 +55,20 @@ private:
     long long current_time_ms();
 
 public:
-    void SET(const std::string& key, const std::string& value, long long px_duration = -1);
-    std::optional<std::string> GET(const std::string& key);
-    int RPUSH(std::string& list_key, std::vector<std::string>& items); // Appends 'items' in the RedisList list at the back and returns the size of 'list'
-    int LPUSH(std::string& list_key, std::vector<std::string>& items); // Appends 'items' in the RedisList list at the front and returns the size of 'list'
-    std::vector<std::string> LRANGE(std::string& list_key, int start, int end); 
-    int LLEN(std::string& list_key);
-    std::vector<std::string> LPOP(std::string& list_key, int num_remove_item);
-    std::optional<std::pair<std::string, std::string> > BLPOP(std::vector<std::string>& list_keys, double wait_time);
-    std::string TYPE(std::string& key);
-    StreamId XADD(std::string& stream_key, std::string& stream_id, std::vector<std::pair<std::string, std::string> >& fields);
-    std::vector<StreamEntry> XRANGE(std::string& stream_key, std::string& start, std::string& end);
-    std::vector<std::pair<std::string, std::vector<StreamEntry> > > XREAD(int count, bool block, int64_t ms, const std::vector<std::string>& keys, const std::vector<std::string>& ids_str);
-    std::optional<long long> INCR(std::string& key);
+    void SET(const std::string& key, const std::string& value, long long px_duration = -1, bool acquire_lock);
+    std::optional<std::string> GET(const std::string& key, bool acquire_lock);
+    int RPUSH(std::string& list_key, std::vector<std::string>& items, bool acquire_lock); // Appends 'items' in the RedisList list at the back and returns the size of 'list'
+    int LPUSH(std::string& list_key, std::vector<std::string>& items, bool acquire_lock); // Appends 'items' in the RedisList list at the front and returns the size of 'list'
+    std::vector<std::string> LRANGE(std::string& list_key, int start, int end, bool acquire_lock); 
+    int LLEN(std::string& list_key, bool acquire_lock);
+    std::vector<std::string> LPOP(std::string& list_key, int num_remove_item, bool acquire_lock);
+    std::optional<std::pair<std::string, std::string> > BLPOP(std::vector<std::string>& list_keys, double wait_time, bool acquire_lock);
+    std::string TYPE(std::string& key, bool acquire_lock);
+    StreamId XADD(std::string& stream_key, std::string& stream_id, std::vector<std::pair<std::string, std::string> >& fields, bool acquire_lock);
+    std::vector<StreamEntry> XRANGE(std::string& stream_key, std::string& start, std::string& end, bool acquire_lock);
+    std::vector<std::pair<std::string, std::vector<StreamEntry> > > XREAD(int count, bool block, int64_t ms, const std::vector<std::string>& keys, const std::vector<std::string>& ids_str, bool acquire_lock);
+    std::optional<long long> INCR(std::string& key, bool acquire_lock);
+    std::vector<std::string> EXEC(std::vector<QueuedCommand>& commandQueue, ClientContext& context, KeyValueDatabase& db, bool acquire_lock);
 };
 
 // Declare that a global instance named 'database' exists somewhere.

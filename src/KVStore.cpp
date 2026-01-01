@@ -1,5 +1,8 @@
 #include "KVStore.hpp"
 #include "Stream.hpp"
+#include "Command.hpp"
+#include "ClientContext.hpp"
+
 
 KeyValueDatabase db;
 
@@ -10,10 +13,15 @@ long long KeyValueDatabase::current_time_ms()
         .count();
 }
 
-void KeyValueDatabase::SET(const std::string &key, const std::string &value, long long px_duration)
+void KeyValueDatabase::SET(const std::string &key, const std::string &value, long long px_duration, bool acquire_lock)
 {
-    std::unique_lock<std::shared_mutex> lock(rw_lock); // we use unique_lock to acquire the mutex EXCLUSIVELY as we are WRITING
-    long long expiry = -1;                             // -1 means it has expiry as INF
+    std::unique_lock<std::shared_mutex> db_lock(rw_lock, std::defer_lock); // we use unique_lock to acquire the mutex EXCLUSIVELY as we are WRITING
+
+    if(acquire_lock) {
+        db_lock.lock();
+    }
+    
+    long long expiry = -1; // -1 means it has expiry as INF
     if (px_duration > 0)
     {
         expiry = current_time_ms() + px_duration;
@@ -22,9 +30,14 @@ void KeyValueDatabase::SET(const std::string &key, const std::string &value, lon
     map[key] = {myVar, ObjType::STRING, expiry};
 }
 
-std::optional<std::string> KeyValueDatabase::GET(const std::string &key)
+std::optional<std::string> KeyValueDatabase::GET(const std::string &key, bool acquire_lock)
 {
-    std::unique_lock<std::shared_mutex> lock(rw_lock); // we use unique lock because we might delete/modify if the key is expired.
+    std::unique_lock<std::shared_mutex> db_lock(rw_lock, std::defer_lock); // we use unique lock because we might delete/modify if the key is expired.
+
+    if(acquire_lock) {
+        db_lock.lock();
+    }
+
     auto it = map.find(key);
     if (it == map.end() || it->second.type != ObjType::STRING)
     {
@@ -44,8 +57,13 @@ std::optional<std::string> KeyValueDatabase::GET(const std::string &key)
     return get<std::string>(it->second.value);
 }
 
-int KeyValueDatabase::RPUSH(std::string &list_key, std::vector<std::string> &items) {
-    std::unique_lock<std::shared_mutex> lock(rw_lock);
+int KeyValueDatabase::RPUSH(std::string &list_key, std::vector<std::string> &items, bool acquire_lock) {
+    std::unique_lock<std::shared_mutex> db_lock(rw_lock, std::defer_lock); 
+
+    if(acquire_lock) {
+        db_lock.lock();
+    }
+
     auto it = map.find(list_key);
 
     if(it != map.end() && it->second.type != ObjType::LIST) return -1;
@@ -83,8 +101,13 @@ int KeyValueDatabase::RPUSH(std::string &list_key, std::vector<std::string> &ite
     return dq.size() + handed_off_count;
 }
 
-int KeyValueDatabase::LPUSH(std::string &list_key, std::vector<std::string> &items) {
-    std::unique_lock<std::shared_mutex> lock(rw_lock);
+int KeyValueDatabase::LPUSH(std::string &list_key, std::vector<std::string> &items, bool acquire_lock) {
+    std::unique_lock<std::shared_mutex> db_lock(rw_lock, std::defer_lock); 
+
+    if(acquire_lock) {
+        db_lock.lock();
+    }
+
     auto it = map.find(list_key);
 
     if(it != map.end() && it->second.type != ObjType::LIST) return -1;
@@ -121,8 +144,13 @@ int KeyValueDatabase::LPUSH(std::string &list_key, std::vector<std::string> &ite
     return dq.size() + handed_off_count;
 }
 
-std::vector<std::string> KeyValueDatabase::LRANGE(std::string &list_key, int start, int end) {
-    std::shared_lock<std::shared_mutex> lock(rw_lock);
+std::vector<std::string> KeyValueDatabase::LRANGE(std::string &list_key, int start, int end, bool acquire_lock) {
+    std::shared_lock<std::shared_mutex> db_lock(rw_lock, std::defer_lock); 
+
+    if(acquire_lock) {
+        db_lock.lock();
+    }
+
     auto it = map.find(list_key);
     std::vector<std::string> items;
 
@@ -136,8 +164,13 @@ std::vector<std::string> KeyValueDatabase::LRANGE(std::string &list_key, int sta
     return items;
 } 
 
-int KeyValueDatabase::LLEN(std::string &list_key) {
-    std::shared_lock<std::shared_mutex> lock(rw_lock);
+int KeyValueDatabase::LLEN(std::string &list_key, bool acquire_lock) {
+    std::shared_lock<std::shared_mutex> db_lock(rw_lock, std::defer_lock); 
+
+    if(acquire_lock) {
+        db_lock.lock();
+    }
+
     auto it = map.find(list_key);
     int size = 0;
     if(it != map.end() && it->second.type == ObjType::LIST) {
@@ -147,8 +180,13 @@ int KeyValueDatabase::LLEN(std::string &list_key) {
     return size;
 }
 
-std::vector<std::string> KeyValueDatabase::LPOP(std::string &list_key, int num_remove_item) {
-    std::unique_lock<std::shared_mutex> lock(rw_lock);
+std::vector<std::string> KeyValueDatabase::LPOP(std::string &list_key, int num_remove_item, bool acquire_lock) {
+    std::unique_lock<std::shared_mutex> db_lock(rw_lock, std::defer_lock); 
+
+    if(acquire_lock) {
+        db_lock.lock();
+    }
+
     auto it = map.find(list_key);
     std::vector<std::string> removed_items;
 
@@ -168,8 +206,12 @@ std::vector<std::string> KeyValueDatabase::LPOP(std::string &list_key, int num_r
     return removed_items;
 }
 
-std::optional<std::pair<std::string, std::string> > KeyValueDatabase::BLPOP(std::vector<std::string>& list_keys, double wait_time) {
-    std::unique_lock<std::shared_mutex> lock(rw_lock);
+std::optional<std::pair<std::string, std::string> > KeyValueDatabase::BLPOP(std::vector<std::string>& list_keys, double wait_time, bool acquire_lock) {
+    std::unique_lock<std::shared_mutex> db_lock(rw_lock, std::defer_lock); 
+
+    if(acquire_lock) {
+        db_lock.lock();
+    }
     
     // Check if any list is non-empty
     for(std::string& key : list_keys) {
@@ -198,10 +240,10 @@ std::optional<std::pair<std::string, std::string> > KeyValueDatabase::BLPOP(std:
 
     if(wait_time > 0.00001) {
         // wait till wait_time or till condition is satisfied
-        ctx.cv.wait_for(lock, std::chrono::duration<double>(wait_time), [&]{return ctx.is_fulfilled;});
+        ctx.cv.wait_for(db_lock, std::chrono::duration<double>(wait_time), [&]{return ctx.is_fulfilled;});
     } else {
         // wait forever till the condition is satisfied
-        ctx.cv.wait(lock, [&]{ return ctx.is_fulfilled; });
+        ctx.cv.wait(db_lock, [&]{ return ctx.is_fulfilled; });
     }
 
     for(std::string& key : list_keys) {
@@ -221,8 +263,13 @@ std::optional<std::pair<std::string, std::string> > KeyValueDatabase::BLPOP(std:
     return std::nullopt;
 }
 
-std::string KeyValueDatabase::TYPE(std::string& key) {
-    std::shared_lock<std::shared_mutex> lock(rw_lock);
+std::string KeyValueDatabase::TYPE(std::string& key, bool acquire_lock) {
+    std::shared_lock<std::shared_mutex> db_lock(rw_lock, std::defer_lock); 
+
+    if(acquire_lock) {
+        db_lock.lock();
+    }
+    
     auto it = map.find(key);
     if(it == map.end()) {
         return "none";
@@ -238,8 +285,13 @@ std::string KeyValueDatabase::TYPE(std::string& key) {
     }
 }
 
-StreamId KeyValueDatabase::XADD(std::string& stream_key, std::string& stream_id, std::vector<std::pair<std::string, std::string> >& fields) {
-    std::unique_lock<std::shared_mutex> db_lock(rw_lock);
+StreamId KeyValueDatabase::XADD(std::string& stream_key, std::string& stream_id, std::vector<std::pair<std::string, std::string> >& fields, bool acquire_lock) {
+    std::unique_lock<std::shared_mutex> db_lock(rw_lock, std::defer_lock); 
+
+    if(acquire_lock) {
+        db_lock.lock();
+    }
+
     auto it = map.find(stream_key);
     if(it == map.end()) {
         map[stream_key] = {Value(Stream()), ObjType::STREAM, -1};
@@ -294,7 +346,7 @@ StreamId KeyValueDatabase::XADD(std::string& stream_key, std::string& stream_id,
     return new_id;
 }
 
-std::vector<StreamEntry> KeyValueDatabase::XRANGE(std::string& stream_key, std::string& start, std::string& end) {
+std::vector<StreamEntry> KeyValueDatabase::XRANGE(std::string& stream_key, std::string& start, std::string& end, bool acquire_lock) {
     StreamId startId, endId;
     try {
         startId = StreamId::parse(start, false); 
@@ -304,7 +356,11 @@ std::vector<StreamEntry> KeyValueDatabase::XRANGE(std::string& stream_key, std::
         throw; 
     }
     
-    std::shared_lock<std::shared_mutex> lock(rw_lock);
+    std::shared_lock<std::shared_mutex> db_lock(rw_lock, std::defer_lock); 
+
+    if(acquire_lock) {
+        db_lock.lock();
+    }
     
     auto it = map.find(stream_key);
     if(it == map.end()) {
@@ -318,14 +374,18 @@ std::vector<StreamEntry> KeyValueDatabase::XRANGE(std::string& stream_key, std::
     return stream.range(startId, endId);
 }
 
-std::vector<std::pair<std::string, std::vector<StreamEntry>>> KeyValueDatabase::XREAD(int count, bool block, int64_t ms, const std::vector<std::string>& keys, const std::vector<std::string>& ids_str) { 
+std::vector<std::pair<std::string, std::vector<StreamEntry>>> KeyValueDatabase::XREAD(int count, bool block, int64_t ms, const std::vector<std::string>& keys, const std::vector<std::string>& ids_str, bool acquire_lock) { 
     // we need to resolve '$' and also store them incase for retry later 
     std::vector<std::string> resolved_ids_str = ids_str; 
     std::vector<StreamId> threshold_ids;
 
     //scope for read lock
     {
-        std::shared_lock<std::shared_mutex> db_lock(rw_lock); 
+        std::shared_lock<std::shared_mutex> db_lock(rw_lock, std::defer_lock); 
+
+        if(acquire_lock) {
+            db_lock.lock();
+        }
         
         for(size_t i = 0; i < keys.size(); i++) {
             // resolve $
@@ -405,11 +465,16 @@ std::vector<std::pair<std::string, std::vector<StreamEntry>>> KeyValueDatabase::
     }
 
     // we need to pass resolved ids, if we pass ids_str (containing $), it will resolve to the new id and miss the data.
-    return XREAD(count, false, 0, keys, resolved_ids_str);
+    return XREAD(count, false, 0, keys, resolved_ids_str, acquire_lock);
 }
 
-std::optional<long long> KeyValueDatabase::INCR(std::string& key) {
-    std::unique_lock<std::shared_mutex> db_lock(rw_lock);
+std::optional<long long> KeyValueDatabase::INCR(std::string& key, bool acquire_lock) {
+    std::unique_lock<std::shared_mutex> db_lock(rw_lock, std::defer_lock);
+
+    if(acquire_lock) {
+        db_lock.lock();
+    }
+
     auto it = map.find(key);
     
     if(it == map.end()) {
@@ -438,5 +503,15 @@ std::optional<long long> KeyValueDatabase::INCR(std::string& key) {
     } catch(...) {
         throw std::invalid_argument("value is not an integer");
     }
-
 }
+
+std::vector<std::string> KeyValueDatabase::EXEC(std::vector<QueuedCommand>& commandQueue, ClientContext& context, KeyValueDatabase& db, bool acquire_lock) {
+    std::unique_lock<std::shared_mutex> db_lock(rw_lock);
+    std::vector<std::string> results;
+
+    for(auto& queued : commandQueue) {
+        results.push_back(queued.cmd->execute(context, queued.args, db, false));
+    }
+
+    return results;
+};
