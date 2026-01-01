@@ -18,7 +18,7 @@ class PingCommand : public Command {
 public:
     std::string name() const override { return "PING"; }
     
-    std::string execute(const std::vector<std::string>& args, KeyValueDatabase& db) override {
+    std::string execute(ClientContext& context, const std::vector<std::string>& args, KeyValueDatabase& db, bool acquire_lock) override {
         return "+PONG\r\n";
     }
 };
@@ -29,7 +29,7 @@ public:
     std::string name() const override { return "ECHO"; }
     int min_args() const override { return 2; }
 
-    std::string execute(const std::vector<std::string> &args, KeyValueDatabase &db) override
+    std::string execute(ClientContext& context, const std::vector<std::string>& args, KeyValueDatabase& db, bool acquire_lock) override
     {
         std::string arg = args[1];
         return "$" + std::to_string(arg.length()) + "\r\n" + arg + "\r\n"; 

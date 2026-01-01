@@ -21,7 +21,7 @@ public:
     std::string name() const override { return "SET"; }
     int min_args() const override { return 3; } // SET key value
 
-    std::string execute(const std::vector<std::string> &args, KeyValueDatabase &db) override
+    std::string execute(ClientContext& context, const std::vector<std::string>& args, KeyValueDatabase& db, bool acquire_lock) override
     {
 
         std::string key = args[1];
@@ -59,7 +59,7 @@ public:
             }
         }
 
-        db.SET(key, val, PX);
+        db.SET(key, val, acquire_lock, PX);
         return "+OK\r\n";
     }
 };
@@ -70,10 +70,10 @@ public:
     std::string name() const override { return "GET"; }
     int min_args() const override { return 2; }
 
-    std::string execute(const std::vector<std::string> &args, KeyValueDatabase &db) override
+    std::string execute(ClientContext& context, const std::vector<std::string>& args, KeyValueDatabase& db, bool acquire_lock) override
     {
         std::string key = args[1];
-        std::optional<std::string> result = db.GET(key);
+        std::optional<std::string> result = db.GET(key, acquire_lock);
 
         if (result.has_value())
         {
