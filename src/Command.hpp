@@ -1,9 +1,9 @@
 #pragma once
 #include <string>
 #include<vector>
-#include "KVStore.hpp"
 
 class ClientContext;
+class KeyValueDatabase;
 
 class Command {
 public:

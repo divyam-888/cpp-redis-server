@@ -13,7 +13,7 @@ long long KeyValueDatabase::current_time_ms()
         .count();
 }
 
-void KeyValueDatabase::SET(const std::string &key, const std::string &value, long long px_duration, bool acquire_lock)
+void KeyValueDatabase::SET(const std::string &key, const std::string &value, bool acquire_lock, long long px_duration)
 {
     std::unique_lock<std::shared_mutex> db_lock(rw_lock, std::defer_lock); // we use unique_lock to acquire the mutex EXCLUSIVELY as we are WRITING
 

@@ -55,7 +55,7 @@ private:
     long long current_time_ms();
 
 public:
-    void SET(const std::string& key, const std::string& value, long long px_duration = -1, bool acquire_lock);
+    void SET(const std::string& key, const std::string& value, bool acquire_lock, long long px_duration = -1);
     std::optional<std::string> GET(const std::string& key, bool acquire_lock);
     int RPUSH(std::string& list_key, std::vector<std::string>& items, bool acquire_lock); // Appends 'items' in the RedisList list at the back and returns the size of 'list'
     int LPUSH(std::string& list_key, std::vector<std::string>& items, bool acquire_lock); // Appends 'items' in the RedisList list at the front and returns the size of 'list'
