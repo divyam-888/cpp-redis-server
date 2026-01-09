@@ -63,7 +63,7 @@ struct Stream {
                               std::chrono::system_clock::now().time_since_epoch()).count();
             
             if (now < last_id.ms) {
-                //System Clock is skewed, we will consider last_id, just increment the sequence number
+                //system clock is skewed, we will consider last_id, just increment the sequence number
                 id.ms = last_id.ms;
                 id.seq = last_id.seq + 1;
             } else if (now == last_id.ms) {
@@ -113,7 +113,7 @@ struct Stream {
         return query;
     }
 
-    std::vector<StreamEntry> read(int count, bool block, int64_t ms, StreamId& start) {
+    std::vector<StreamEntry> read(int count, int64_t ms, StreamId& start) {
         std::vector<StreamEntry> query;
         auto it = entries.upper_bound(start);
         int cnt = 0;

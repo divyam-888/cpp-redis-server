@@ -246,6 +246,7 @@ std::optional<std::pair<std::string, std::string> > KeyValueDatabase::BLPOP(std:
         ctx.cv.wait(db_lock, [&]{ return ctx.is_fulfilled; });
     }
 
+    // remove this blocking context from all the lists that we added it to earlier
     for(std::string& key : list_keys) {
         auto it = blocking_map.find(key);
         if (it != blocking_map.end()) {
@@ -329,12 +330,17 @@ StreamId KeyValueDatabase::XADD(std::string& stream_key, std::string& stream_id,
 
     StreamId new_id = stream.add(id_param, fields);
 
+    /* As there are other stream as well which will try to update blocking stream context map we need to acquire lock for it. Though in 
+    current implementation we have already acquired UNIQUE db_lock first to reach here (either on our own or through EXEC) and still hold it
+    we have already assured concurrency but ideally we should have unlocked db and let others have it since we no longer want to update map 
+    and acquire this lock instead */
+
     //check is some client is waiting for this stream entry
     std::lock_guard<std::mutex> stream_lock(stream_blocking_mutex);
     if(blocking_stream_map.count(stream_key)) {
         std::list<BlockingStreamNode>& waiters = blocking_stream_map[stream_key];
         for(auto& node : waiters) {
-            if(node.threshold_id < id_param) {
+            if(node.threshold_id < new_id) {
                 //There can be multiple streams waiting to notify this client so we first acquire lock to the clients block controller
                 std::lock_guard<std::mutex> client_lock(node.controller->lock);
                 node.controller->is_fulfilled = true;
@@ -407,7 +413,7 @@ std::vector<std::pair<std::string, std::vector<StreamEntry>>> KeyValueDatabase::
             if(it == map.end() || it->second.type != ObjType::STREAM) continue;
 
             Stream& stream = std::get<Stream>(it->second.value);
-            std::vector<StreamEntry> new_entries = stream.read(count, block, ms, threshold_ids[i]);
+            std::vector<StreamEntry> new_entries = stream.read(count, ms, threshold_ids[i]);
 
             if(!new_entries.empty()) {
                 response.push_back({keys[i], std::move(new_entries)});
@@ -421,12 +427,13 @@ std::vector<std::pair<std::string, std::vector<StreamEntry>>> KeyValueDatabase::
     } // db locks goes out of scope, and is released
     
 
-    /* Unlike BLPOP here for each key we have a unique parameter: stream_id, so we need a different blocking context for each 
+    /* Unlike BLPOP here for each key we have a unique parameter corresponding to each stream kay: threshold stream_id, so we need a different blocking context for each 
     instead of just creating a separate context with its own cv and fulfilled bool we create a controller which contains cv and bool as
     they are common for each key. For the unique parameter we create a new struct which hold the threshold id and a pointer to this controller struct
     (which contains common info). Since there are multiple streams which may try to update the controller we also need a mutex lock for it */
+    
     BlockingStreamController controller;
-    std::list<std::pair<std::string, std::list<BlockingStreamNode>::iterator>> my_iterators;
+    std::vector<std::pair<std::string, std::list<BlockingStreamNode>::iterator>> my_iterators;
 
     {
         std::lock_guard<std::mutex> map_lock(stream_blocking_mutex); // lock stream blocking map
@@ -437,6 +444,8 @@ std::vector<std::pair<std::string, std::vector<StreamEntry>>> KeyValueDatabase::
             node.controller = &controller;
             
             blocking_stream_map[keys[i]].push_back(node);
+
+            //storing iterator to clean the blocking list later for this key
             auto it = std::prev(blocking_stream_map[keys[i]].end());
             my_iterators.push_back({keys[i], it});
         }

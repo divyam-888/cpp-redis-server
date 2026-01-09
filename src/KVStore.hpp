@@ -47,8 +47,8 @@ private:
     };
 
     std::unordered_map<std::string, std::list<BlockingContextList*> > blocking_map; // stores for each list: Blocking Context of the clients waiting for it
-    std::unordered_map<std::string, std::list<BlockingStreamNode> >blocking_stream_map; 
-    std::unordered_map<std::string, Entry> map;
+    std::unordered_map<std::string, std::list<BlockingStreamNode> > blocking_stream_map; // stores for each stream key the blocking 
+    std::unordered_map<std::string, Entry> map; // database which stores everything
     std::mutex stream_blocking_mutex; // mutex for blocking global stream map which contains list of waiters for each stream_key
     std::shared_mutex rw_lock; // Unlike std::mutex, which can be acquired only by one user, shared_mutex can be acquired by multiple users TO READ, it has to be uniquely acquired to WRITE
 
