@@ -9,14 +9,12 @@ ServerConfig parse_args(int argc, char** argv) {
 
     for(size_t i = 0; i < args.size(); i++) {
         if(args[i] == "--port" && i + 1 < args.size()) {
-            std::cout << "It not is a slave nigga: " << config.role << " " << config.master_host << " " << config.master_port << '\n';
             config.port = std::stoi(args[++i]);  
         } else if(args[i] == "--replicaof" && i + 1 < args.size()) {
             config.role = "slave";
             int pos = args[++i].find(' ');
             config.master_host = args[i].substr(0, pos);
             config.master_port = std::stoi(args[i].substr(pos + 1, 4));
-            std::cout << "It is a slave nigga: " << config.role << " " << config.master_host << " " << config.master_port << '\n';
         }
     }
 
