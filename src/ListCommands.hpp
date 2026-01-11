@@ -15,6 +15,8 @@
 #include "Command.hpp"
 #include "KVStore.hpp"
 #include "ClientContext.hpp"
+#include "Config.hpp"
+#include <sstream>
 
 
 class RPUSH : public Command
@@ -436,3 +438,23 @@ public:
     }
 };
 
+class InfoCommand : public Command {
+private:
+    const ServerConfig& config;
+public:
+    InfoCommand(const ServerConfig& cfg) : config(cfg) {}
+    std::string name() const override { return "INFO"; }
+    int min_args() const override { return 0; }
+
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
+        std::ostringstream oss;
+        oss << "# Replication\r\n";
+        oss << "role:" << config.role << "\r\n";
+        oss << "master_replid:" << config.master_replid << "\r\n";
+        oss << "master_repl_offset:" << config.master_repl_offset << "\r\n";
+
+        std::string info = oss.str();
+
+        return "$" + std::to_string(info.length()) + "\r\n" + info + "\r\n";
+    }
+};

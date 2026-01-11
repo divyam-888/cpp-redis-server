@@ -17,6 +17,7 @@
 #include "GetSetCommand.hpp"
 #include "ListCommands.hpp"
 #include "ClientContext.hpp"
+#include "Config.hpp"
 
 std::vector<std::string> extractArgs(RESPValue &input) {
   if (input.type != RESPType::ARRAY || input.array.empty()) {
@@ -89,6 +90,7 @@ int main(int argc, char **argv)
 {
   KeyValueDatabase db;
   CommandRegistry registry;
+  ServerConfig config = parse_args(argc, argv);
 
   registry.registerCommand(std::make_unique<PingCommand>());
   registry.registerCommand(std::make_unique<EchoCommand>());
@@ -108,6 +110,7 @@ int main(int argc, char **argv)
   registry.registerCommand(std::make_unique<MultiCommand>());
   registry.registerCommand(std::make_unique<ExecCommand>());
   registry.registerCommand(std::make_unique<DiscardCommand>());
+  registry.registerCommand(std::make_unique<InfoCommand>(config));
   
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;
@@ -138,13 +141,15 @@ int main(int argc, char **argv)
   struct sockaddr_in server_addr;
   server_addr.sin_family = AF_INET;
   server_addr.sin_addr.s_addr = INADDR_ANY;
-  server_addr.sin_port = htons(6379);
+  server_addr.sin_port = htons(config.port);
 
   if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0)
   {
-    std::cerr << "Failed to bind to port 6379\n";
+    std::cerr << "Failed to bind to port " << config.port << '\n';
     return 1;
-  }
+  } 
+
+  std::cout << "Server started on port " << config.port << " as " << config.role << std::endl;
 
   // Now our socket/server is ready to take connections. We need to pass socket descriptor and backlog i.e, maximum # of connections our server can take to listen()
   // Backlog = 5 means If 5 people call at once, put 4 on hold. If a 6th calls, drop them.
