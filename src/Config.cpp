@@ -1,6 +1,7 @@
 #include "Config.hpp"
 #include <stdexcept>
 #include <vector>
+#include <iostream>
 
 ServerConfig parse_args(int argc, char** argv) {
     ServerConfig config;
@@ -13,6 +14,7 @@ ServerConfig parse_args(int argc, char** argv) {
             config.role = "slave";
             config.master_host = args[++i];
             config.master_port = std::stoi(args[++i]);
+            std::cout << "It is a slave nigga: " << config.role << " " << config.master_host << " " << config.master_port << '\n';
         }
     }
 
