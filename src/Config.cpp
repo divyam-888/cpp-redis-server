@@ -9,6 +9,7 @@ ServerConfig parse_args(int argc, char** argv) {
 
     for(size_t i = 0; i < args.size(); i++) {
         if(args[i] == "--port" && i + 1 < args.size()) {
+            std::cout << "It not is a slave nigga: " << config.role << " " << config.master_host << " " << config.master_port << '\n';
             config.port = std::stoi(args[++i]);  
         } else if(args[i] == "--replicaof" && i + 2 < args.size()) {
             config.role = "slave";
