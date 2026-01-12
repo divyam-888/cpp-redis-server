@@ -78,11 +78,11 @@ private:
         std::string response(buffer);
 
         // validate if the reponse is correct
-        if (!expected_response.empty() && response.find(expected_response) != 0)
-        {
-            throw std::runtime_error("Unexpected master response. Expected prefix: " +
-                                     expected_response + ", Received: " + response);
-        }
+        // if (!expected_response.empty() && response.find(expected_response) != 0)
+        // {
+        //     throw std::runtime_error("Unexpected master response. Expected prefix: " +
+        //                              expected_response + ", Received: " + response);
+        // }
 
         std::cout << "[REPL] Master replied: " << response << std::endl;
     }
