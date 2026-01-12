@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <mutex>
+#include <memory>
 
 struct ServerConfig {
     int port = 6379;
