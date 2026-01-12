@@ -10,6 +10,7 @@ struct QueuedCommand {
 class ClientContext {
 public:
     int client_fd;
+    bool is_replica;
     bool in_transaction;
     bool transaction_failed;
     std::vector<QueuedCommand> commandQueue;
@@ -17,6 +18,7 @@ public:
     ClientContext(int fd) : client_fd(fd) {
         in_transaction = false;
         transaction_failed = false;
+        is_replica = false;
     }
 
     void reset_transaction() {

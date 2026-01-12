@@ -458,3 +458,56 @@ public:
         return "$" + std::to_string(info.length()) + "\r\n" + info + "\r\n";
     }
 };
+
+class REPLCONF : public Command {
+private:
+    const ServerConfig& config;
+public:
+    REPLCONF(const ServerConfig& cfg) : config(cfg) {}
+    std::string name() const override { return "REPLCONF"; }
+    int min_args() const override { return 0; }
+
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
+        return "+OK\r\n";
+    }    
+};
+
+class PSYNCCommand : public Command {
+private:
+    ServerConfig& config;
+public:
+    PSYNCCommand(ServerConfig& cfg) : config(cfg) {}
+    std::string name() const override { return "PSYNC"; }
+    int min_args() const override { return 3; }
+
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
+        context.is_replica = true;
+        
+        // as multiple replicas might try to connect at once, we need mutex
+        {
+            std::lock_guard<std::mutex> lock(config.replica_mutex);
+            config.replicas.push_back(context.client_fd);
+        }
+
+        std::string full_resync = "+FULLRESYNC " + config.master_replid + " 0\r\n";
+
+        // we need to send empty RDB file as well
+        std::string rdb_hex = "524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa05636c6f636bc26e08af65fa08616f662d62617365c000ff10aa32543365927401";
+        std::string rdb_content = hexToBinary(rdb_hex); 
+
+        std::string rdb_transfer = "$" + std::to_string(rdb_content.length()) + "\r\n" + rdb_content;
+
+        // no \r\n after the RDB content!!!
+        return full_resync + rdb_transfer;
+    }
+
+    std::string hexToBinary(const std::string& hex) {
+        std::string binary = "";
+        for (size_t i = 0; i < hex.length(); i += 2) {
+            std::string byteString = hex.substr(i, 2);
+            char byte = (char) strtol(byteString.c_str(), NULL, 16);
+            binary.push_back(byte);
+        }
+        return binary;
+    }  
+};

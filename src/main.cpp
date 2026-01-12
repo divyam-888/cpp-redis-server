@@ -18,6 +18,7 @@
 #include "ListCommands.hpp"
 #include "ClientContext.hpp"
 #include "Config.hpp"
+#include "ReplicationManager.hpp"
 
 std::vector<std::string> extractArgs(RESPValue &input) {
   if (input.type != RESPType::ARRAY || input.array.empty()) {
@@ -92,6 +93,15 @@ int main(int argc, char **argv)
   CommandRegistry registry;
   ServerConfig config = parse_args(argc, argv);
 
+  if (config.role == "slave") {
+    // we use stack-allocated manager start the handshake thread.
+    std::thread replication_thread([&config, &db]() {
+        ReplicationManager manager(config, db);
+        manager.startHandshake();
+    });
+    replication_thread.detach(); 
+  }
+
   registry.registerCommand(std::make_unique<PingCommand>());
   registry.registerCommand(std::make_unique<EchoCommand>());
   registry.registerCommand(std::make_unique<SetCommand>());
@@ -111,6 +121,8 @@ int main(int argc, char **argv)
   registry.registerCommand(std::make_unique<ExecCommand>());
   registry.registerCommand(std::make_unique<DiscardCommand>());
   registry.registerCommand(std::make_unique<InfoCommand>(config));
+  registry.registerCommand(std::make_unique<REPLCONF>(config));
+  registry.registerCommand(std::make_unique<PSYNCCommand>(config));
   
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;
@@ -180,7 +192,7 @@ int main(int argc, char **argv)
 
     std::cout << "New Client Connected! Spawning thread...\n";
 
-    // New thread for this client; We use std::thread and pass the function + arguments
+    // New thread for this client; We use std::thread and pass the routine + arguments
     std::thread client_thread(handleClient, client_fd, std::ref(db), std::ref(registry));
 
     // Detaching the thread so main can continue running waiting for new clients
