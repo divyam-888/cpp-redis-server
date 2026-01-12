@@ -91,9 +91,9 @@ int main(int argc, char **argv)
 {
   KeyValueDatabase db;
   CommandRegistry registry;
-  ServerConfig config = parse_args(argc, argv);
+  std::shared_ptr<ServerConfig> config = parse_args(argc, argv);
 
-  if (config.role == "slave") {
+  if (config->role == "slave") {
     // we use stack-allocated manager start the handshake thread.
     std::thread replication_thread([&config, &db]() {
         ReplicationManager manager(config, db);
@@ -153,15 +153,15 @@ int main(int argc, char **argv)
   struct sockaddr_in server_addr;
   server_addr.sin_family = AF_INET;
   server_addr.sin_addr.s_addr = INADDR_ANY;
-  server_addr.sin_port = htons(config.port);
+  server_addr.sin_port = htons(config->port);
 
   if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0)
   {
-    std::cerr << "Failed to bind to port " << config.port << '\n';
+    std::cerr << "Failed to bind to port " << config->port << '\n';
     return 1;
   } 
 
-  std::cout << "Server started on port " << config.port << " as " << config.role << std::endl;
+  std::cout << "Server started on port " << config->port << " as " << config->role << std::endl;
 
   // Now our socket/server is ready to take connections. We need to pass socket descriptor and backlog i.e, maximum # of connections our server can take to listen()
   // Backlog = 5 means If 5 people call at once, put 4 on hold. If a 6th calls, drop them.

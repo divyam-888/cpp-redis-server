@@ -11,7 +11,7 @@
 
 class ReplicationManager {
 private:
-    const ServerConfig& config;
+    std::shared_ptr<ServerConfig> config;
     KeyValueDatabase& db;
 
     int connectToMaster(const std::string& host, int port_number) {
@@ -73,10 +73,10 @@ private:
     }
 
 public:
-    ReplicationManager(const ServerConfig& cfg, KeyValueDatabase& db_) : config(cfg), db(db_) {}
+    ReplicationManager(std::shared_ptr<ServerConfig> cfg, KeyValueDatabase& db_) : config(cfg), db(db_) {}
 
     void startHandshake() {
-        int master_fd = connectToMaster(config.master_host, config.master_port);
+        int master_fd = connectToMaster(config->master_host, config->master_port);
 
         if(master_fd < 0) {
             std::cout << "Failed to get master's file descriptor\n";
@@ -86,8 +86,8 @@ public:
         sendAndExpect(master_fd, "*1\r\n$4\r\nPING\r\n", "+PONG\r\n");
 
         std::string port_cmd = "*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$" + 
-                               std::to_string(std::to_string(config.port).length()) + 
-                               "\r\n" + std::to_string(config.port) + "\r\n";
+                               std::to_string(std::to_string(config->port).length()) + 
+                               "\r\n" + std::to_string(config->port) + "\r\n";
         sendAndExpect(master_fd, port_cmd, "+OK\r\n");
 
         sendAndExpect(master_fd, "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n", "+OK\r\n");

@@ -440,18 +440,18 @@ public:
 
 class InfoCommand : public Command {
 private:
-    const ServerConfig& config;
+    std::shared_ptr<ServerConfig> config;
 public:
-    InfoCommand(const ServerConfig& cfg) : config(cfg) {}
+    InfoCommand(std::shared_ptr<ServerConfig> cfg) : config(cfg) {}
     std::string name() const override { return "INFO"; }
     int min_args() const override { return 0; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
         std::ostringstream oss;
         oss << "# Replication\r\n";
-        oss << "role:" << config.role << "\r\n";
-        oss << "master_replid:" << config.master_replid << "\r\n";
-        oss << "master_repl_offset:" << config.master_repl_offset << "\r\n";
+        oss << "role:" << config->role << "\r\n";
+        oss << "master_replid:" << config->master_replid << "\r\n";
+        oss << "master_repl_offset:" << config->master_repl_offset << "\r\n";
 
         std::string info = oss.str();
 
@@ -461,9 +461,9 @@ public:
 
 class REPLCONF : public Command {
 private:
-    const ServerConfig& config;
+    std::shared_ptr<ServerConfig> config;
 public:
-    REPLCONF(const ServerConfig& cfg) : config(cfg) {}
+    REPLCONF(std::shared_ptr<ServerConfig> cfg) : config(cfg) {}
     std::string name() const override { return "REPLCONF"; }
     int min_args() const override { return 0; }
 
@@ -474,9 +474,9 @@ public:
 
 class PSYNCCommand : public Command {
 private:
-    ServerConfig& config;
+    std::shared_ptr<ServerConfig> config;
 public:
-    PSYNCCommand(ServerConfig& cfg) : config(cfg) {}
+    PSYNCCommand(std::shared_ptr<ServerConfig> cfg) : config(cfg) {}
     std::string name() const override { return "PSYNC"; }
     int min_args() const override { return 3; }
 
@@ -485,11 +485,11 @@ public:
         
         // as multiple replicas might try to connect at once, we need mutex
         {
-            std::lock_guard<std::mutex> lock(config.replica_mutex);
-            config.replicas.push_back(context.client_fd);
+            std::lock_guard<std::mutex> lock(config->replica_mutex);
+            config->replicas.push_back(context.client_fd);
         }
 
-        std::string full_resync = "+FULLRESYNC " + config.master_replid + " 0\r\n";
+        std::string full_resync = "+FULLRESYNC " + config->master_replid + " 0\r\n";
 
         // we need to send empty RDB file as well
         std::string rdb_hex = "524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa05636c6f636bc26e08af65fa08616f662d62617365c000ff10aa32543365927401";

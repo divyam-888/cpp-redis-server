@@ -17,5 +17,5 @@ struct ServerConfig {
     std::mutex replica_mutex;
 };
 
-ServerConfig parse_args(int argc, char** argv);
+std::shared_ptr<ServerConfig> parse_args(int argc, char** argv);
 
