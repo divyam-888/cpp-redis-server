@@ -27,6 +27,7 @@ private:
 
         // Convert IP address from text to binary
         if (inet_pton(AF_INET, host.c_str(), &master_addr.sin_addr) <= 0) {
+            std::cout << "Tried to connect to " << host << " at port: " << port_number << std::endl;
             std::cerr << "Invalid master address/ Address not supported" << std::endl;
             close(sock);
             return -1;
