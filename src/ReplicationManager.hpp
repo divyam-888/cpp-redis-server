@@ -17,6 +17,7 @@
 #include "ClientContext.hpp"
 #include "Config.hpp"
 
+std::vector<std::string> extractArgs(RESPValue &input);
 
 class ReplicationManager
 {
