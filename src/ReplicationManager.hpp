@@ -17,24 +17,6 @@
 #include "ClientContext.hpp"
 #include "Config.hpp"
 
-std::vector<std::string> extractArgs(RESPValue &input) {
-  if (input.type != RESPType::ARRAY || input.array.empty()) {
-    return {};
-  }
-  std::vector<std::string> args;
-  args.reserve(input.array.size()); // pre allocate memory for optimization
-
-  for(const auto& item : input.array) {
-    if (item.type == RESPType::ARRAY) {
-      // throw exception if nested arrays are given
-      throw std::runtime_error("Nested arrays are not supported in commands");
-      // or return empty to signal failure
-      // return {}; 
-    }
-    args.push_back(item.value);
-  }
-  return args;
-}
 
 class ReplicationManager
 {
