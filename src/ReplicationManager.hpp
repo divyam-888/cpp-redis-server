@@ -84,6 +84,7 @@ private:
 
     void processMasterStream(int master_fd)
     {
+        std::cout << "Started Processing Stream" << std::endl;
         std::string rdb_data = reader.read_rdb();
         std::cout << "[REPL] Received RDB of size: " << rdb_data.size() << std::endl;
 
