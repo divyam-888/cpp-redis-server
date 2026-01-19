@@ -24,6 +24,7 @@ class RPUSH : public Command
 public:
     std::string name() const override { return "RPUSH"; }
     int min_args() const override { return 3; }
+    bool isWriteCommand() const override { return true; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
@@ -49,6 +50,7 @@ class LPUSH : public Command
 public:
     std::string name() const override { return "LPUSH"; }
     int min_args() const override { return 3; }
+    bool isWriteCommand() const override { return true; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
@@ -74,6 +76,7 @@ class LRANGE : public Command
 public:
     std::string name() const override { return "LRANGE"; }
     int min_args() const override { return 4; }
+    bool isWriteCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
@@ -102,6 +105,7 @@ class LLEN : public Command
 public:
     std::string name() const override { return "LLEN"; }
     int min_args() const override { return 2; }
+    bool isWriteCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
@@ -117,6 +121,7 @@ class LPOP : public Command
 public:
     std::string name() const override { return "LPOP"; }
     int min_args() const override { return 2; }
+    bool isWriteCommand() const override { return true; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
@@ -152,6 +157,7 @@ class BLPOP : public Command {
 public:
     std::string name() const override { return "BLPOP"; }
     int min_args() const override { return 3; }
+    bool isWriteCommand() const override { return true; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
@@ -190,6 +196,7 @@ class TypeCommand : public Command {
 public:
     std::string name() const override { return "TYPE"; }
     int min_args() const override { return 2; }
+    bool isWriteCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
@@ -203,6 +210,7 @@ class XADDCommand : public Command {
 public:
     std::string name() const override { return "XADD"; }
     int min_args() const override { return 5; }
+    bool isWriteCommand() const override { return true; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
@@ -238,6 +246,7 @@ class XRANGECommand : public Command {
 public:
     std::string name() const override { return "XRANGE"; }
     int min_args() const override { return 4; }
+    bool isWriteCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
@@ -279,6 +288,7 @@ public:
 class XREADCommand : public Command {
     std::string name() const override { return "XREAD"; }
     int min_args() const override { return 4; }
+    bool isWriteCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
@@ -366,6 +376,7 @@ class IncrementCommand : public Command {
 public:
     std::string name() const override { return "INCR"; }
     int min_args() const override { return 2; }
+    bool isWriteCommand() const override { return true; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
@@ -391,6 +402,7 @@ class MultiCommand : public Command {
 public:
     std::string name() const override { return "MULTI"; }
     int min_args() const override { return 1; }
+    bool isWriteCommand() const override { return true; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
         if(context.in_transaction) {
@@ -405,6 +417,7 @@ class ExecCommand : public Command {
 public:
     std::string name() const override { return "EXEC"; }
     int min_args() const override { return 1; }
+    bool isWriteCommand() const override { return true; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
         if(!context.in_transaction) {
@@ -426,6 +439,7 @@ class DiscardCommand : public Command {
 public:
     std::string name() const override { return "DISCARD"; }
     int min_args() const override { return 1; }
+    bool isWriteCommand() const override { return true; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
         if(!context.in_transaction) {
@@ -445,6 +459,7 @@ public:
     InfoCommand(std::shared_ptr<ServerConfig> cfg) : config(cfg) {}
     std::string name() const override { return "INFO"; }
     int min_args() const override { return 0; }
+    bool isWriteCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
         std::ostringstream oss;
@@ -466,6 +481,7 @@ public:
     REPLCONF(std::shared_ptr<ServerConfig> cfg) : config(cfg) {}
     std::string name() const override { return "REPLCONF"; }
     int min_args() const override { return 0; }
+    bool isWriteCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
         return "+OK\r\n";
@@ -479,20 +495,21 @@ public:
     PSYNCCommand(std::shared_ptr<ServerConfig> cfg) : config(cfg) {}
     std::string name() const override { return "PSYNC"; }
     int min_args() const override { return 3; }
+    bool isWriteCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
         context.is_replica = true;
         
         // as multiple replicas might try to connect at once, we need mutex
         {
-            std::lock_guard<std::mutex> lock(config->replica_mutex);
+            std::unique_lock<std::mutex> lock(config->replica_mutex);
             config->replicas.push_back(context.client_fd);
         }
 
         std::string full_resync = "+FULLRESYNC " + config->master_replid + " 0\r\n";
 
         // we need to send empty RDB file as well
-        std::string rdb_hex = "524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa05636c6f636bc26e08af65fa08616f662d62617365c000ff10aa32543365927401";
+        std::string rdb_hex = "524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa056374696d65c26d08bc65fa08757365642d6d656dc2b0c41000fa08616f662d62617365c000fff06e3bfec0ff5aa2";
         std::string rdb_content = hexToBinary(rdb_hex); 
 
         std::string rdb_transfer = "$" + std::to_string(rdb_content.length()) + "\r\n" + rdb_content;
@@ -508,6 +525,7 @@ public:
             char byte = (char) strtol(byteString.c_str(), NULL, 16);
             binary.push_back(byte);
         }
+
         return binary;
     }  
 };

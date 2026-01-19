@@ -18,4 +18,5 @@ public:
     // Each command knows its own name and requirements
     virtual std::string name() const = 0; 
     virtual int min_args() const { return 0; } // Default 0
+    virtual bool isWriteCommand() const { return false; }
 };

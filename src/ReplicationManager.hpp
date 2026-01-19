@@ -6,14 +6,43 @@
 #include <cstring>
 #include <string>
 #include <iostream>
+#include "RESPReader.hpp"
+#include "KVStore.hpp" 
+#include "RESPParser.hpp"
+#include "Command.hpp"
+#include "CommandRegistry.hpp"
+#include "PingEchoCommand.hpp"
+#include "GetSetCommand.hpp"
+#include "ListCommands.hpp"
+#include "ClientContext.hpp"
 #include "Config.hpp"
-#include "KVStore.hpp"
+
+std::vector<std::string> extractArgs(RESPValue &input) {
+  if (input.type != RESPType::ARRAY || input.array.empty()) {
+    return {};
+  }
+  std::vector<std::string> args;
+  args.reserve(input.array.size()); // pre allocate memory for optimization
+
+  for(const auto& item : input.array) {
+    if (item.type == RESPType::ARRAY) {
+      // throw exception if nested arrays are given
+      throw std::runtime_error("Nested arrays are not supported in commands");
+      // or return empty to signal failure
+      // return {}; 
+    }
+    args.push_back(item.value);
+  }
+  return args;
+}
 
 class ReplicationManager
 {
 private:
     std::shared_ptr<ServerConfig> config;
     KeyValueDatabase &db;
+    CommandRegistry &registry;
+    RESPReader reader;
 
     int connectToMaster(const std::string &host, int port_number)
     {
@@ -65,34 +94,52 @@ private:
             throw std::runtime_error("Failed to send command to master: " + cmd);
         }
 
-        // wait for the response from master
-        char buffer[1024];
-        ssize_t bytes_received = recv(fd, buffer, sizeof(buffer) - 1, 0);
-
-        if (bytes_received <= 0)
-        {
-            throw std::runtime_error("Connection closed by master during handshake");
-        }
-
-        buffer[bytes_received] = '\0';
-        std::string response(buffer);
-
-        // validate if the reponse is correct
-        // if (!expected_response.empty() && response.find(expected_response) != 0)
-        // {
-        //     throw std::runtime_error("Unexpected master response. Expected prefix: " +
-        //                              expected_response + ", Received: " + response);
-        // }
+        std::string response = reader.read_next_message();
 
         std::cout << "[REPL] Master replied: " << response << std::endl;
     }
 
-    void processMasterStream(int fd)
+    void processMasterStream(int master_fd)
     {
+        std::string rdb_data = reader.read_rdb();
+        std::cout << "[REPL] Received RDB of size: " << rdb_data.size() << std::endl;
+
+        ClientContext dummy_context(-1);
+
+        while (true) {
+            std::string raw_cmd = reader.read_next_message();
+            if (raw_cmd.empty()) break; 
+
+            RESPParser parser(raw_cmd);
+            RESPValue input = parser.parse();
+
+            std::vector<std::string> args = extractArgs(input);
+    
+            std::string cmdName = args[0];
+            Command* cmd = registry.getCommand(cmdName);
+
+            std::string response;
+
+            if (!cmd) {
+              response = "-ERR unknown command\r\n";
+            } else if (args.size() < cmd->min_args()) {
+              response = "-ERR wrong number of arguments\r\n";
+            } else {
+              if(dummy_context.in_transaction && cmd->name() != "EXEC" && cmd->name() != "DISCARD") {
+                response = "+QUEUED\r\n";
+                dummy_context.commandQueue.push_back({cmd, std::move(args)});
+              } else {
+                response = cmd->execute(dummy_context, args, db, true);
+              }
+            }
+
+            std::cout << "[REPL] Executed propagated command: " << cmdName << std::endl;
+        }
     }
 
 public:
-    ReplicationManager(std::shared_ptr<ServerConfig> cfg, KeyValueDatabase &db_) : config(cfg), db(db_) {}
+    ReplicationManager(std::shared_ptr<ServerConfig> cfg, KeyValueDatabase &db_, CommandRegistry &registry_) : config(cfg), 
+                                                                                                        db(db_), registry(registry_) {}
 
     void startHandshake()
     {
@@ -103,6 +150,8 @@ public:
             std::cout << "Failed to get master's file descriptor\n";
             return;
         }
+
+        reader.set_fd(master_fd);
 
         sendAndExpect(master_fd, "*1\r\n$4\r\nPING\r\n", "+PONG\r\n");
 

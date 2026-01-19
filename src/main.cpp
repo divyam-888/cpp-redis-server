@@ -10,7 +10,7 @@
 #include <thread>
 #include <algorithm>
 #include "KVStore.hpp" 
-#include "RESP.hpp"
+#include "RESPParser.hpp"
 #include "Command.hpp"
 #include "CommandRegistry.hpp"
 #include "PingEchoCommand.hpp"
@@ -39,7 +39,7 @@ std::vector<std::string> extractArgs(RESPValue &input) {
   return args;
 }
 
-void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry)
+void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry, std::shared_ptr<ServerConfig> config)
 {
   char buffer[1024];
   ClientContext context(client_fd);
@@ -67,6 +67,7 @@ void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry
     Command* cmd = registry.getCommand(cmdName);
 
     std::string response;
+    bool should_propagate = false;
 
     if (!cmd) {
       response = "-ERR unknown command\r\n";
@@ -78,11 +79,24 @@ void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry
         context.commandQueue.push_back({cmd, std::move(args)});
       } else {
         response = cmd->execute(context, args, db, true);
+
+        if (cmd->isWriteCommand() && config->role == "master") {
+          should_propagate = true;
+        }
+      }
+    }
+
+    if (should_propagate) {
+      std::lock_guard<std::mutex> lock(config->replica_mutex);
+      for (int replica_fd : config->replicas) {
+        // send the ORIGINAL raw RESP string (inputString) to the replicas
+        send(replica_fd, inputString.data(), inputString.length(), 0);
       }
     }
 
     send(client_fd, response.data(), response.length(), 0);
   }
+
 
   close(client_fd);
 }
@@ -94,9 +108,9 @@ int main(int argc, char **argv)
   std::shared_ptr<ServerConfig> config = parse_args(argc, argv);
 
   if (config->role == "slave") {
-    // we use stack-allocated manager start the handshake thread.
-    std::thread replication_thread([&config, &db]() {
-        ReplicationManager manager(config, db);
+    // we use stack-allocated manager to start the handshake thread, so that in meantime we can start accepting client
+    std::thread replication_thread([&config, &db, &registry]() {
+        ReplicationManager manager(config, db, registry);
         manager.startHandshake();
     });
     replication_thread.detach(); 
@@ -193,7 +207,7 @@ int main(int argc, char **argv)
     std::cout << "New Client Connected! Spawning thread...\n";
 
     // New thread for this client; We use std::thread and pass the routine + arguments
-    std::thread client_thread(handleClient, client_fd, std::ref(db), std::ref(registry));
+    std::thread client_thread(handleClient, client_fd, std::ref(db), std::ref(registry), config);
 
     // Detaching the thread so main can continue running waiting for new clients
     client_thread.detach();

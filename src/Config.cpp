@@ -4,6 +4,7 @@
 #include <iostream>
 
 std::shared_ptr<ServerConfig> parse_args(int argc, char** argv) {
+    // just simply initialising a shared_ptr gives nullptr we need to use make_shared
     auto config = std::make_shared<ServerConfig>();
     std::vector<std::string> args(argv + 1, argv + argc);
 
