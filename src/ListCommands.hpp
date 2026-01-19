@@ -503,6 +503,7 @@ public:
         // as multiple replicas might try to connect at once, we need mutex
         {
             std::unique_lock<std::mutex> lock(config->replica_mutex);
+            std::cout << "connected to " << context.client_fd << std::endl;
             config->replicas.push_back(context.client_fd);
         }
 
