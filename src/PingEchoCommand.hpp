@@ -18,7 +18,7 @@ class PingCommand : public Command {
 public:
     std::string name() const override { return "PING"; }
     int min_args() const override { return 0; }
-    bool isWriteCommand() const override { return true; }
+    bool isWriteCommand() const override { return false; }
     
     std::string execute(ClientContext& context, const std::vector<std::string>& args, KeyValueDatabase& db, bool acquire_lock) override {
         return "+PONG\r\n";
@@ -30,7 +30,7 @@ class EchoCommand : public Command
 public:
     std::string name() const override { return "ECHO"; }
     int min_args() const override { return 2; }
-    bool isWriteCommand() const override { return true; }
+    bool isWriteCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string>& args, KeyValueDatabase& db, bool acquire_lock) override
     {
