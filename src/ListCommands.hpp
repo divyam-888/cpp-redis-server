@@ -504,7 +504,7 @@ public:
             std::string response = "*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$" +
                                  std::to_string(std::to_string(config->master_repl_offset).length()) + "\r\n" 
                                 + std::to_string(config->master_repl_offset) + "\r\n";
-
+            return response;
         } else {
             return "+OK\r\n";
         }
