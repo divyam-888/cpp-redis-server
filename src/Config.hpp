@@ -3,6 +3,8 @@
 #include <vector>
 #include <mutex>
 #include <memory>
+#include <atomic>
+#include <condition_variable>
 
 struct ReplicaInfo {
     int fd;
