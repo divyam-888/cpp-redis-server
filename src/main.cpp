@@ -39,7 +39,6 @@ void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry
     //Break the RESP concatenated string as RESPValue array
     RESPParser parser(inputString);
     RESPValue input = parser.parse();
-
     //From the RESPValue array, get the inputs as vector of string
     std::vector<std::string> args = parser.extractArgs(input);
     
@@ -59,8 +58,8 @@ void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry
         response = "+QUEUED\r\n";
         context.commandQueue.push_back({cmd, std::move(args)});
       } else {
+        std::cout << "Executing " << cmd->name() << std::endl;
         response = cmd->execute(context, args, db, true);
-
         if (cmd->isWriteCommand() && config->role == "master") {
           should_propagate = true;
         }
@@ -79,7 +78,6 @@ void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry
 
     send(client_fd, response.data(), response.length(), 0);
   }
-
 
   close(client_fd);
 }
@@ -121,7 +119,7 @@ int main(int argc, char **argv)
   registry.registerCommand(std::make_unique<REPLCONF>(config));
   registry.registerCommand(std::make_unique<PSYNCCommand>(config));
   registry.registerCommand(std::make_unique<WAITCommand>(config));
-  
+
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
