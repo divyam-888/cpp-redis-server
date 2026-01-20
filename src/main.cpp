@@ -76,7 +76,9 @@ void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry
       config->master_repl_offset += inputString.length();
     }
 
-    send(client_fd, response.data(), response.length(), 0);
+    if (!response.empty()) {
+      send(client_fd, response.data(), response.length(), 0);
+    }
   }
 
   close(client_fd);

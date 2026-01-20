@@ -515,9 +515,10 @@ public:
             }
             // Wake up any threads waiting on a WAIT command
             config->replica_cv.notify_all();  
-        } else {
-            return "+OK\r\n";
-        }
+            return "";
+        } 
+
+        return "+OK\r\n";
     }    
 };
 
