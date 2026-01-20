@@ -10,6 +10,7 @@ struct QueuedCommand {
 class ClientContext {
 public:
     int client_fd;
+    int replica_index;
     bool is_replica;
     bool in_transaction;
     bool transaction_failed;

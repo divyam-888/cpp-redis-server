@@ -69,11 +69,12 @@ void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry
 
     if (should_propagate) {
       std::lock_guard<std::mutex> lock(config->replica_mutex);
-      for (int replica_fd : config->replicas) {
+      for (auto& [replica_fd, ack_offset] : config->replicas) {
         // send the ORIGINAL raw RESP string (inputString) to the replicas
         std::cout << "Propogating to replica: " << cmd->name() << std::endl;
         send(replica_fd, inputString.data(), inputString.length(), 0);
       }
+      config->master_repl_offset += inputString.length();
     }
 
     send(client_fd, response.data(), response.length(), 0);
@@ -119,6 +120,7 @@ int main(int argc, char **argv)
   registry.registerCommand(std::make_unique<InfoCommand>(config));
   registry.registerCommand(std::make_unique<REPLCONF>(config));
   registry.registerCommand(std::make_unique<PSYNCCommand>(config));
+  registry.registerCommand(std::make_unique<WAITCommand>(config));
   
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;

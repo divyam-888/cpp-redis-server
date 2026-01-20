@@ -505,6 +505,16 @@ public:
                                  std::to_string(std::to_string(config->master_repl_offset).length()) + "\r\n" 
                                 + std::to_string(config->master_repl_offset) + "\r\n";
             return response;
+        } else if(args[1] == "ACK") {
+            size_t offset = std::stoull(args[2]);
+            {
+                std::lock_guard<std::mutex> lock(config->replica_mutex);
+                if (context.replica_index < config->replicas.size()) {
+                    config->replicas[context.replica_index].ack_offset = offset;
+                }
+            }
+            // Wake up any threads waiting on a WAIT command
+            config->replica_cv.notify_all();  
         } else {
             return "+OK\r\n";
         }
@@ -527,7 +537,8 @@ public:
         // as multiple replicas might try to connect at once, we need mutex
         {
             std::unique_lock<std::mutex> lock(config->replica_mutex);
-            config->replicas.push_back(context.client_fd);
+            context.replica_index = (int)config->replicas.size();
+            config->replicas.push_back({context.client_fd, 0});
         }
 
         std::string full_resync = "+FULLRESYNC " + config->master_replid + " 0\r\n";
@@ -552,4 +563,50 @@ public:
 
         return binary;
     }  
+};
+
+class WAITCommand : public Command{
+private:
+    std::shared_ptr<ServerConfig> config;
+public:
+    WAITCommand(std::shared_ptr<ServerConfig> cfg) : config(cfg) {}
+    std::string name() const override { return "WAIT"; }
+    int min_args() const override { return 3; }
+    bool isWriteCommand() const override { return false; }
+    bool sendToMaster() const override { return false; }
+
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override  {
+        int target = std::stoi(args[1]);
+        int timeout_ms = std::stoi(args[2]);
+        size_t required_offset = config->master_repl_offset;
+
+        {
+            std::unique_lock<std::mutex> lock(config->replica_mutex);
+            std::string getack = "*3\r\n$8\r\nREPLCONF\r\n$6\r\nGETACK\r\n$1\r\n*\r\n";
+            for (auto& repl : config->replicas) {
+                send(repl.fd, getack.data(), getack.length(), 0);
+            }
+        }
+
+        std::unique_lock<std::mutex> lock(config->replica_mutex);
+
+        auto predicate = [&]() {
+            int count = 0;
+            for (auto& repl : config->replicas) {
+                if (repl.ack_offset >= required_offset) count++;
+            }
+            return count >= target;
+        };
+
+        // block the thread until predicate is true OR timeout reached
+        config->replica_cv.wait_for(lock, std::chrono::milliseconds(timeout_ms), predicate);
+
+        // final count after waking up
+        int final_count = 0;
+        for (auto& repl : config->replicas) {
+            if (repl.ack_offset >= required_offset) final_count++;
+        }
+
+        return ":" + std::to_string(final_count) + "\r\n";
+    }
 };

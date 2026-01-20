@@ -4,6 +4,11 @@
 #include <mutex>
 #include <memory>
 
+struct ReplicaInfo {
+    int fd;
+    size_t ack_offset = 0;
+};
+
 struct ServerConfig {
     // by default it is localhost
     int port = 6379;
@@ -13,13 +18,16 @@ struct ServerConfig {
     int master_port = 0;
 
     std::string master_replid = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"; // generate a pseudo-random alphanumeric string of 40 characters
-    int master_repl_offset = 0;
+    std::atomic<size_t> master_repl_offset{0};
 
     // store slaves' fd
-    std::vector<int> replicas;
+    std::vector<ReplicaInfo> replicas;
 
     // std::mutex is neither copyable nor movable.
     std::mutex replica_mutex;
+
+    //to notify the master if any replica responds the getack command
+    std::condition_variable replica_cv;
 };
 
 /* we need to return shared_ptr as during returing it will try to move/copy the ptr to the caller function 
