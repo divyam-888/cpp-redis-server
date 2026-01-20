@@ -17,8 +17,6 @@
 #include "ClientContext.hpp"
 #include "Config.hpp"
 
-std::vector<std::string> extractArgs(RESPValue &input);
-
 class ReplicationManager
 {
 private:
@@ -97,7 +95,7 @@ private:
             RESPParser parser(raw_cmd);
             RESPValue input = parser.parse();
 
-            std::vector<std::string> args = extractArgs(input);
+            std::vector<std::string> args = parser.extractArgs(input);
     
             std::string cmdName = args[0];
             Command* cmd = registry.getCommand(cmdName);

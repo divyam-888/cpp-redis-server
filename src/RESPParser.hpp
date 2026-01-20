@@ -24,6 +24,7 @@ class RESPParser
 public:
     RESPParser(const std::string &input);
     RESPValue parse();
+    std::vector<std::string> extractArgs(RESPValue &input);
 
 private:
     const std::string &buffer;

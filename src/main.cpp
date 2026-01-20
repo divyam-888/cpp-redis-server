@@ -20,25 +20,6 @@
 #include "Config.hpp"
 #include "ReplicationManager.hpp"
 
-std::vector<std::string> extractArgs(RESPValue &input) {
-  if (input.type != RESPType::ARRAY || input.array.empty()) {
-    return {};
-  }
-  std::vector<std::string> args;
-  args.reserve(input.array.size()); // pre allocate memory for optimization
-
-  for(const auto& item : input.array) {
-    if (item.type == RESPType::ARRAY) {
-      // throw exception if nested arrays are given
-      throw std::runtime_error("Nested arrays are not supported in commands");
-      // or return empty to signal failure
-      // return {}; 
-    }
-    args.push_back(item.value);
-  }
-  return args;
-}
-
 void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry, std::shared_ptr<ServerConfig> config)
 {
   char buffer[1024];
@@ -60,7 +41,7 @@ void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry
     RESPValue input = parser.parse();
 
     //From the RESPValue array, get the inputs as vector of string
-    std::vector<std::string> args = extractArgs(input);
+    std::vector<std::string> args = parser.extractArgs(input);
     
     //Find the Command which we have to execute
     std::string cmdName = args[0];
