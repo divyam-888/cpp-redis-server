@@ -14,6 +14,7 @@ std::shared_ptr<ServerConfig> parse_args(int argc, char** argv) {
         } else if (args[i] == "--replicaof" && i + 1 < args.size()) {
             config->role = "slave";
             std::string value = args[++i]; // "localhost 6379"
+            std::cout << "master is " << value << std::endl;
             size_t space_pos = value.find(' ');
             if (space_pos != std::string::npos) {
                 config->master_host = value.substr(0, space_pos);
