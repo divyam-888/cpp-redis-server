@@ -21,6 +21,7 @@ public:
     std::string name() const override { return "SET"; }
     int min_args() const override { return 3; } // SET key value
     bool isWriteCommand() const override { return true; }
+    bool sendToMaster() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string>& args, KeyValueDatabase& db, bool acquire_lock) override
     {
@@ -71,6 +72,7 @@ public:
     std::string name() const override { return "GET"; }
     int min_args() const override { return 2; }
     bool isWriteCommand() const override { return false; }
+    bool sendToMaster() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string>& args, KeyValueDatabase& db, bool acquire_lock) override
     {

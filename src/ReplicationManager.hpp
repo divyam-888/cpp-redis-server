@@ -115,6 +115,12 @@ private:
               }
             }
 
+            if(cmd->sendToMaster()) {
+                send(master_fd, response.data(), response.length(), 0);
+            } 
+
+            config->master_repl_offset += raw_cmd.length();
+
             std::cout << "[REPL] Executed propagated command: " << cmdName << std::endl;
         }
     }
@@ -130,7 +136,7 @@ public:
         if (master_fd < 0)
         {
             std::cout << "Failed to get master's file descriptor\n";
-            return;
+            return; 
         }
 
         reader.set_fd(master_fd);

@@ -71,7 +71,7 @@ void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry
       std::lock_guard<std::mutex> lock(config->replica_mutex);
       for (int replica_fd : config->replicas) {
         // send the ORIGINAL raw RESP string (inputString) to the replicas
-        std::cout << "propogating to " << replica_fd << std::endl;
+        std::cout << "Propogating to replica: " << cmd->name() << std::endl;
         send(replica_fd, inputString.data(), inputString.length(), 0);
       }
     }
