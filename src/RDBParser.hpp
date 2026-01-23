@@ -84,6 +84,8 @@ public:
                 expiry_ms = expiry_ms - current_ms;
             }
 
+            std::cout << "extracted: " << key << " : " << value << " expiry: " << expiry_ms << std::endl;
+
             db.SET(key, value, true, expiry_ms);
         }
     }
