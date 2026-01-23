@@ -69,6 +69,7 @@ public:
     std::vector<std::pair<std::string, std::vector<StreamEntry> > > XREAD(int count, bool block, int64_t ms, const std::vector<std::string>& keys, const std::vector<std::string>& ids_str, bool acquire_lock);
     std::optional<long long> INCR(std::string& key, bool acquire_lock);
     std::vector<std::string> EXEC(std::vector<QueuedCommand>& commandQueue, ClientContext& context, KeyValueDatabase& db, bool acquire_lock);
+    std::vector<std::string> KEYS(std::string &pattern, bool acquire_lock);
 };
 
 // Declare that a global instance named 'database' exists somewhere.

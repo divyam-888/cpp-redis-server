@@ -611,3 +611,48 @@ public:
         return ":" + std::to_string(final_count) + "\r\n";
     }
 };
+
+class CONFIGCommand : public Command {
+private:
+    std::shared_ptr<ServerConfig> config;
+public:
+    CONFIGCommand(std::shared_ptr<ServerConfig> cfg) : config(cfg) {}
+    std::string name() const override { return "CONFIG"; }
+    int min_args() const override { return 3; }
+    bool isWriteCommand() const override { return false; }
+    bool sendToMaster() const override { return false; }
+
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
+        std::string param;
+        std::string value;
+        if(args[2] == "dir") {
+            param = "dir";
+            value = config->rdb_file_dir;
+        } else if(args[2] == "dbfilename") {
+            param = "dbfilename";
+            value = config->rdb_file_name;
+        }
+
+        return "*2\r\n$" + std::to_string(param.length()) + "\r\n" + param + "\r\n$" + std::to_string(value.length()) + "\r\n" + value + "\r\n";
+    }
+};
+
+class KEYSCommand : public Command {
+public:
+    std::string name() const override { return "KEYS"; }
+    int min_args() const override { return 2; }
+    bool isWriteCommand() const override { return false; }
+    bool sendToMaster() const override { return false; }
+
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
+        std::string pattern = args[1];
+        std::vector<std::string> keys = db.KEYS(pattern, acquire_lock);
+
+        std::string response = "*" + std::to_string(keys.size()) + "\r\n";
+        for(auto &key : keys) {
+            response += "$" + std::to_string(key.length()) + "\r\n" + key + "\r\n";
+        }
+
+        return response;
+    }
+};

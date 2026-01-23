@@ -524,3 +524,42 @@ std::vector<std::string> KeyValueDatabase::EXEC(std::vector<QueuedCommand>& comm
 
     return results;
 };
+
+std::vector<std::string> KeyValueDatabase::KEYS(std::string& pattern, bool acquire_lock) {
+    std::shared_lock<std::shared_mutex> db_lock(rw_lock, std::defer_lock);
+    
+    if(acquire_lock) {
+        db_lock.lock();
+    }
+
+    std::vector<std::string> results;
+
+    long long now = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+
+    for (auto it = map.begin(); it != map.end(); ) {
+        if (it->second.expiry_at != -1 && it->second.expiry_at < now) {
+            it = map.erase(it); 
+            continue;
+        }
+
+        const std::string& key = it->first;
+
+        if (pattern == "*") {
+            results.push_back(key);
+        } else if (pattern.back() == '*') {
+            // avoid making a deep copy
+            std::string_view prefix(pattern.data(), pattern.size() - 1);
+            if (std::string_view(key).starts_with(prefix)) {
+                results.push_back(key);
+            }
+        } else if (key == pattern) {
+            // exact match
+            results.push_back(key);
+        }
+
+        ++it;
+    }
+    return results;
+}
+

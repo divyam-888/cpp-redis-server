@@ -30,6 +30,9 @@ struct ServerConfig {
 
     //to notify the master if any replica responds the getack command
     std::condition_variable replica_cv;
+
+    std::string rdb_file_dir = "";
+    std::string rdb_file_name = "";
 };
 
 /* we need to return shared_ptr as during returing it will try to move/copy the ptr to the caller function 

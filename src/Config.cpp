@@ -19,6 +19,10 @@ std::shared_ptr<ServerConfig> parse_args(int argc, char** argv) {
                 config->master_host = value.substr(0, space_pos);
                 config->master_port = std::stoi(value.substr(space_pos + 1));
             }
+        } else if(args[i] == "--dir" && i + 1 < args.size()) {
+            config->rdb_file_dir = args[++i];
+        } else if(args[i] == "--dbfilename" && i + 1 < args.size()) {
+            config->rdb_file_name = args[++i];
         }
     }
 

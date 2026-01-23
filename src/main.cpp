@@ -19,6 +19,7 @@
 #include "ClientContext.hpp"
 #include "Config.hpp"
 #include "ReplicationManager.hpp"
+#include "RDBParser.hpp"
 
 void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry, std::shared_ptr<ServerConfig> config)
 {
@@ -89,6 +90,9 @@ int main(int argc, char **argv)
   CommandRegistry registry;
   std::shared_ptr<ServerConfig> config = parse_args(argc, argv);
 
+  std::string full_path = config->rdb_file_dir + "/" + config->rdb_file_name;
+  RDBParser::load(full_path, db);
+
   if (config->role == "slave") {
     // we use stack-allocated manager to start the handshake thread, so that in meantime we can start accepting client
     std::thread replication_thread([&config, &db, &registry]() {
@@ -120,6 +124,8 @@ int main(int argc, char **argv)
   registry.registerCommand(std::make_unique<REPLCONF>(config));
   registry.registerCommand(std::make_unique<PSYNCCommand>(config));
   registry.registerCommand(std::make_unique<WAITCommand>(config));
+  registry.registerCommand(std::make_unique<CONFIGCommand>(config));
+  registry.registerCommand(std::make_unique<KEYSCommand>());
 
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
