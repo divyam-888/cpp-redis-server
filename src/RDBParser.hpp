@@ -57,6 +57,8 @@ public:
             }
 
             long long expiry_ms = -1;
+            unsigned char value_type;
+
             if (opcode == 0xFD) {
                 // expiry in seconds, unsigned int of 4 bytes in little-endian
                 uint32_t seconds;
@@ -65,12 +67,18 @@ public:
             } else if (opcode == 0xFC) {
                 // expiry in ms, unsigned long of 8 bytes in little-endian
                 file.read(reinterpret_cast<char *>(&expiry_ms), 8);
+            } else {
+                value_type = opcode;
             }
 
             // value type opcode
-            file.read(reinterpret_cast<char *>(&opcode), 1);
             std::string key = readString(file);
-            std::string value = readString(file);
+            std::string value;
+            if (value_type == 0) { 
+                value = readString(file);
+            } else {
+                continue; 
+            }
 
             long long current_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                                        std::chrono::system_clock::now().time_since_epoch())
@@ -156,7 +164,8 @@ private:
 
         // read length, then read data
         uint32_t len = readLength(file);
-        std::string s(len, '\0');
+        std::string s;
+        s.resize(len);
         file.read(&s[0], len);
         return s;
     }
