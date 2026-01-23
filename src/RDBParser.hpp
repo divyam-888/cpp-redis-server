@@ -88,7 +88,7 @@ public:
 
             if (expiry_ms != -1) {
                 std::cout << "extracted: " << key << " : " << value << " expiry: " << expiry_ms << " current: " << current_ms << std::endl;
-                if (expiry_ms < 0) {
+                if (expiry_ms < current_ms) {
                     continue;
                 }
                 // convert absolute timestamp to relative duration for expiry logic
