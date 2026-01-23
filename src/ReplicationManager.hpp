@@ -155,7 +155,6 @@ public:
         sendAndExpect(master_fd, "*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n", "+FULLRESYNC\r\n");
 
         // After PSYNC, the master will send an RDB file and then a stream of commands.
-        // This thread should now enter a loop to process those commands.
         processMasterStream(master_fd);
     }
 };

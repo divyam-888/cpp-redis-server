@@ -69,7 +69,6 @@ void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry
     if (should_propagate) {
       std::lock_guard<std::mutex> lock(config->replica_mutex);
       for (auto& [replica_fd, ack_offset] : config->replicas) {
-        // send the ORIGINAL raw RESP string (inputString) to the replicas
         std::cout << "Propogating to replica: " << cmd->name() << std::endl;
         send(replica_fd, inputString.data(), inputString.length(), 0);
       }
@@ -122,7 +121,6 @@ int main(int argc, char **argv)
   registry.registerCommand(std::make_unique<PSYNCCommand>(config));
   registry.registerCommand(std::make_unique<WAITCommand>(config));
 
-  // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
 
@@ -135,8 +133,6 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  // Since the tester restarts your program quite often, setting SO_REUSEADDR
-  // ensures that we don't run into 'Address already in use' errors
   int reuse = 1;
   if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0)
   {
