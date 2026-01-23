@@ -64,9 +64,11 @@ public:
                 uint32_t seconds;
                 file.read(reinterpret_cast<char *>(&seconds), 4);
                 expiry_ms = (long long)seconds * 1000;
+                file.read(reinterpret_cast<char *>(&value_type), 1);
             } else if (opcode == 0xFC) {
                 // expiry in ms, unsigned long of 8 bytes in little-endian
                 file.read(reinterpret_cast<char *>(&expiry_ms), 8);
+                file.read(reinterpret_cast<char *>(&value_type), 1);
             } else {
                 value_type = opcode;
             }
