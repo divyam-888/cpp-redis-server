@@ -85,14 +85,13 @@ public:
                                        .count();
 
             if (expiry_ms != -1) {
-                if (expiry_ms < current_ms) {
+                std::cout << "extracted: " << key << " : " << value << " expiry: " << expiry_ms << " current: " << current_ms << std::endl;
+                if (expiry_ms < 0) {
                     continue;
                 }
                 // convert absolute timestamp to relative duration for expiry logic
                 expiry_ms = expiry_ms - current_ms;
             }
-
-            std::cout << "extracted: " << key << " : " << value << " expiry: " << expiry_ms << std::endl;
 
             db.SET(key, value, true, expiry_ms);
         }
