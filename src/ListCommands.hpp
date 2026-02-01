@@ -12,11 +12,13 @@
 #include <string>
 #include <unordered_map>
 #include <optional>
+#include <sstream>
 #include "Command.hpp"
 #include "KVStore.hpp"
 #include "ClientContext.hpp"
 #include "Config.hpp"
-#include <sstream>
+#include "PubSubManager.hpp"
+
 
 
 class RPUSH : public Command
@@ -26,6 +28,7 @@ public:
     int min_args() const override { return 3; }
     bool isWriteCommand() const override { return true; }
     bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
@@ -53,6 +56,7 @@ public:
     int min_args() const override { return 3; }
     bool isWriteCommand() const override { return true; }
     bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
@@ -80,6 +84,7 @@ public:
     int min_args() const override { return 4; }
     bool isWriteCommand() const override { return false; }
     bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
@@ -110,6 +115,7 @@ public:
     int min_args() const override { return 2; }
     bool isWriteCommand() const override { return false; }
     bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
@@ -127,6 +133,7 @@ public:
     int min_args() const override { return 2; }
     bool isWriteCommand() const override { return true; }
     bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
@@ -164,6 +171,7 @@ public:
     int min_args() const override { return 3; }
     bool isWriteCommand() const override { return true; }
     bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
@@ -204,6 +212,7 @@ public:
     int min_args() const override { return 2; }
     bool isWriteCommand() const override { return false; }
     bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
@@ -219,6 +228,7 @@ public:
     int min_args() const override { return 5; }
     bool isWriteCommand() const override { return true; }
     bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
@@ -256,6 +266,7 @@ public:
     int min_args() const override { return 4; }
     bool isWriteCommand() const override { return false; }
     bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
@@ -299,6 +310,7 @@ class XREADCommand : public Command {
     int min_args() const override { return 4; }
     bool isWriteCommand() const override { return false; }
     bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
@@ -388,6 +400,7 @@ public:
     int min_args() const override { return 2; }
     bool isWriteCommand() const override { return true; }
     bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override
     {
@@ -415,6 +428,7 @@ public:
     int min_args() const override { return 1; }
     bool isWriteCommand() const override { return true; }
     bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
         if(context.in_transaction) {
@@ -431,6 +445,7 @@ public:
     int min_args() const override { return 1; }
     bool isWriteCommand() const override { return true; }
     bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
         if(!context.in_transaction) {
@@ -454,6 +469,7 @@ public:
     int min_args() const override { return 1; }
     bool isWriteCommand() const override { return true; }
     bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
         if(!context.in_transaction) {
@@ -475,6 +491,7 @@ public:
     int min_args() const override { return 0; }
     bool isWriteCommand() const override { return false; }
     bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
         std::ostringstream oss;
@@ -498,6 +515,7 @@ public:
     int min_args() const override { return 0; }
     bool isWriteCommand() const override { return false; }
     bool sendToMaster() const override { return true; }
+    bool isPubSubCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
         if(args[1] == "GETACK") {
@@ -531,6 +549,7 @@ public:
     int min_args() const override { return 3; }
     bool isWriteCommand() const override { return false; }
     bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
         context.is_replica = true;
@@ -575,6 +594,7 @@ public:
     int min_args() const override { return 3; }
     bool isWriteCommand() const override { return false; }
     bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override  {
         int target = std::stoi(args[1]);
@@ -621,6 +641,7 @@ public:
     int min_args() const override { return 3; }
     bool isWriteCommand() const override { return false; }
     bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
         std::string param;
@@ -643,6 +664,7 @@ public:
     int min_args() const override { return 2; }
     bool isWriteCommand() const override { return false; }
     bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
         std::string pattern = args[1];
@@ -652,6 +674,80 @@ public:
         for(auto &key : keys) {
             response += "$" + std::to_string(key.length()) + "\r\n" + key + "\r\n";
         }
+
+        return response;
+    }
+};
+
+class SUBSCRIBECommand : public Command {
+private:
+    std::shared_ptr<PubSubManager> manager;
+public:
+    SUBSCRIBECommand(std::shared_ptr<PubSubManager> manager_) { manager = manager_; }
+    std::string name() const override { return "SUBSCRIBE"; }
+    int min_args() const override { return 2; }
+    bool isWriteCommand() const override { return false; }
+    bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return true; }
+
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
+        std::string channel = args[1];
+
+        manager->subscribe(channel, context.client_fd, context.client_mtx);
+        context.in_subscribe_mode = true;
+        context.num_channel++;
+
+        std::string response = "*3\r\n$9\r\nsubscribe\r\n" + (std::string)"$" + std::to_string(channel.length()) + "\r\n" + channel + "\r\n" + 
+                                    ":" + std::to_string(context.num_channel) + "\r\n";
+        return response;
+    }
+};
+
+class UNSUBSCRIBECommand : public Command {
+private:
+    std::shared_ptr<PubSubManager> manager;
+public:
+    UNSUBSCRIBECommand(std::shared_ptr<PubSubManager> manager_) { manager = manager_; }
+    std::string name() const override { return "UNSUBSCRIBE"; }
+    int min_args() const override { return 2; }
+    bool isWriteCommand() const override { return false; }
+    bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return true; }
+
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
+        std::string channel = args[1];
+
+        manager->unsubscribe(channel, context.client_fd);
+        
+        context.num_channel--;
+        if(context.num_channel == 0) { 
+            context.in_subscribe_mode = false;
+        }
+
+        std::string response = "*3\r\n$11\r\nunsubscribe\r\n" + (std::string)"$" + std::to_string(channel.length()) + "\r\n" + channel + "\r\n" + 
+                                    ":" + std::to_string(context.num_channel) + "\r\n";
+        return response;
+    }
+};
+
+class PUBLISHCommand : public Command {
+private:
+    std::shared_ptr<PubSubManager> manager;
+public:
+    PUBLISHCommand(std::shared_ptr<PubSubManager> manager_) { manager = manager_; }
+    std::string name() const override { return "PUBLISH"; }
+    int min_args() const override { return 3; }
+    bool isWriteCommand() const override { return false; }
+    bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return true; }
+
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
+        std::string channel = args[1];
+        std::string message = args[2];
+
+        int count = manager->publish(channel, message);
+
+        std::string response = ":" + std::to_string(count) + "\r\n";
 
         return response;
     }

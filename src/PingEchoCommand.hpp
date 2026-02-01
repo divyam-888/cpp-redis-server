@@ -20,9 +20,16 @@ public:
     int min_args() const override { return 0; }
     bool isWriteCommand() const override { return false; }
     bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return true; }
 
     std::string execute(ClientContext& context, const std::vector<std::string>& args, KeyValueDatabase& db, bool acquire_lock) override {
-        return "+PONG\r\n";
+        std::string response;
+        if(context.in_subscribe_mode) {
+            response = "*2\r\n$4\r\npong\r\n$0\r\n\r\n";
+        } else {
+            response = "+PONG\r\n";
+        }
+        return response;
     }
 };
 
@@ -33,6 +40,7 @@ public:
     int min_args() const override { return 2; }
     bool isWriteCommand() const override { return false; }
     bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
 
     std::string execute(ClientContext& context, const std::vector<std::string>& args, KeyValueDatabase& db, bool acquire_lock) override
     {

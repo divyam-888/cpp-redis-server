@@ -20,6 +20,7 @@
 #include "Config.hpp"
 #include "ReplicationManager.hpp"
 #include "RDBParser.hpp"
+#include "PubSubManager.hpp"
 
 void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry, std::shared_ptr<ServerConfig> config)
 {
@@ -59,8 +60,12 @@ void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry
         response = "+QUEUED\r\n";
         context.commandQueue.push_back({cmd, std::move(args)});
       } else {
-        std::cout << "Executing " << cmd->name() << std::endl;
-        response = cmd->execute(context, args, db, true);
+        if(context.in_subscribe_mode && !cmd->isPubSubCommand()) {
+          response = "-ERR Can't execute '" + cmd->name() + "': only (P|S)SUBSCRIBE / (P|S)UNSUBSCRIBE / PING / QUIT / RESET are allowed in this context\r\n";
+        } else {
+          response = cmd->execute(context, args, db, true);
+        }
+  
         if (cmd->isWriteCommand() && config->role == "master") {
           should_propagate = true;
         }
@@ -88,6 +93,7 @@ int main(int argc, char **argv)
 {
   KeyValueDatabase db;
   CommandRegistry registry;
+  std::shared_ptr<PubSubManager> manager = std::make_shared<PubSubManager>();
   std::shared_ptr<ServerConfig> config = parse_args(argc, argv);
 
   std::string full_path = config->rdb_file_dir + "/" + config->rdb_file_name;
@@ -126,6 +132,10 @@ int main(int argc, char **argv)
   registry.registerCommand(std::make_unique<WAITCommand>(config));
   registry.registerCommand(std::make_unique<CONFIGCommand>(config));
   registry.registerCommand(std::make_unique<KEYSCommand>());
+  registry.registerCommand(std::make_unique<SUBSCRIBECommand>(manager));
+  registry.registerCommand(std::make_unique<UNSUBSCRIBECommand>(manager));
+  registry.registerCommand(std::make_unique<PUBLISHCommand>(manager));
+
 
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;

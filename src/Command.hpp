@@ -19,5 +19,6 @@ public:
     virtual std::string name() const = 0; 
     virtual int min_args() const { return 0; } // Default 0
     virtual bool isWriteCommand() const { return false; }
+    virtual bool isPubSubCommand() const { return false; }
     virtual bool sendToMaster() const { return false; }
 };
