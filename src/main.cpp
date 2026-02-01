@@ -82,6 +82,7 @@ void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry
     }
 
     if (!response.empty()) {
+      std::unique_lock<std::mutex> write_lock(context.client_mtx);
       send(client_fd, response.data(), response.length(), 0);
     }
   }
