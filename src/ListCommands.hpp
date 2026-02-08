@@ -870,9 +870,9 @@ public:
             return "$-1\r\n";
         }
 
-        std::ostringstream oss;
-        oss << score;
-        std::string s = oss.str();
+        std::stringstream ss;
+        ss << std::fixed << std::setprecision(20) << score;
+        std::string s = ss.str();
         return "$" + std::to_string(s.length()) + "\r\n" + s + "\r\n";
     }
 };
