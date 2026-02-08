@@ -136,6 +136,12 @@ int main(int argc, char **argv)
   registry.registerCommand(std::make_unique<SUBSCRIBECommand>(manager));
   registry.registerCommand(std::make_unique<UNSUBSCRIBECommand>(manager));
   registry.registerCommand(std::make_unique<PUBLISHCommand>(manager));
+  registry.registerCommand(std::make_unique<ZAddCommand>());
+  registry.registerCommand(std::make_unique<ZRankCommand>());
+  registry.registerCommand(std::make_unique<ZRangeCommand>());
+  registry.registerCommand(std::make_unique<ZCardCommand>());
+  registry.registerCommand(std::make_unique<ZScoreCommand>());
+  registry.registerCommand(std::make_unique<ZRemCommand>());
 
 
   std::cout << std::unitbuf;

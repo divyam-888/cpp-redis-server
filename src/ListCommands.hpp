@@ -752,3 +752,150 @@ public:
         return response;
     }
 };
+
+class ZAddCommand : public Command {
+public:
+    std::string name() const override { return "ZADD"; }
+    int min_args() const override { return 2; }
+    bool isWriteCommand() const override { return true; }
+    bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
+
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
+        std::string set_key = args[1];
+
+        if((args.size() - 2) & 1) {
+            return "-ERR syntax error\r\n";
+        }
+
+        int size = (args.size() - 2) / 2;
+
+        std::vector<std::string> members(size);
+        std::vector<double> scores(size);
+
+        int cur_idx = 0;
+
+        for(int i = 2; i < args.size(); i += 2) {
+            scores[cur_idx] = std::stod(args[i]);
+            members[cur_idx] = args[i + 1];
+            cur_idx++;
+        }
+
+        int inserted = db.ZADD(set_key, members, scores, acquire_lock);
+
+        return ":" + std::to_string(inserted) + "\r\n";
+    }
+};
+
+class ZRankCommand : public Command {
+public:
+    std::string name() const override { return "ZRank"; }
+    int min_args() const override { return 3; }
+    bool isWriteCommand() const override { return false; }
+    bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
+
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
+        std::string set_key = args[1];
+        std::string member = args[2];
+
+        int rank = db.ZRANK(set_key, member, acquire_lock);
+
+        if(rank == -1) {
+            return "$-1\r\n";
+        }
+
+        return ":" + std::to_string(rank) + "\r\n";
+    }
+};
+
+class ZRangeCommand : public Command {
+public:
+    std::string name() const override { return "ZRANGE"; }
+    int min_args() const override { return 4; }
+    bool isWriteCommand() const override { return false; }
+    bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
+
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
+        std::string set_key = args[1];
+
+        int start = std::stoi(args[2]);
+        int end = std::stoi(args[3]);
+
+        std::vector<std::string> members = db.ZRANGE(set_key, start, end, acquire_lock);
+
+        std::string response = "*" + std::to_string(members.size()) + "\r\n";
+
+        for(auto& member : members) {
+            response += "$" + std::to_string(member.length()) + "\r\n" + member + "\r\n";
+        }
+
+        return response;
+    }
+};
+
+class ZCardCommand : public Command {
+public:
+    std::string name() const override { return "ZCARD"; }
+    int min_args() const override { return 2; }
+    bool isWriteCommand() const override { return false; }
+    bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
+
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
+        std::string set_key = args[1];
+
+        int cardinality = db.ZCARD(set_key, acquire_lock);
+
+        return ":" + std::to_string(cardinality) + "\r\n";
+    }
+};
+
+class ZScoreCommand : public Command {
+public:
+    std::string name() const override { return "ZSCORE"; }
+    int min_args() const override { return 3; }
+    bool isWriteCommand() const override { return false; }
+    bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
+
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
+        std::string set_key = args[1];
+        std::string member = args[2];
+
+        double score = db.ZSCORE(set_key, member, acquire_lock);
+
+        if(score == -1) {
+            return "$-1\r\n";
+        }
+
+        std::ostringstream oss;
+        oss << score;
+        std::string s = oss.str();
+        return "$" + std::to_string(s.length()) + "\r\n" + s + "\r\n";
+    }
+};
+
+class ZRemCommand : public Command {
+public:
+    std::string name() const override { return "ZREM"; }
+    int min_args() const override { return 3; }
+    bool isWriteCommand() const override { return true; }
+    bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
+
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
+        std::string set_key = args[1];
+
+        std::vector<std::string> members(args.size() - 2);
+
+        for(int i = 2; i < args.size(); i++) {
+            members[i - 2] = args[i];
+        }
+
+        int removed = db.ZREM(set_key, members, acquire_lock);
+
+        return ":" + std::to_string(removed) + "\r\n";
+    }
+};

@@ -13,11 +13,12 @@
 #include <condition_variable>
 #include "Stream.hpp"
 #include "ClientContext.hpp"
+#include "SortedSet.hpp"
 
-enum class ObjType {STRING, LIST, HASH, STREAM};
+enum class ObjType {STRING, LIST, HASH, STREAM, ZSET};
 
 using RedisList = std::deque<std::string>;
-using Value = std::variant<std::string, RedisList, Stream, long long>;
+using Value = std::variant<std::string, RedisList, Stream, ZSet, long long>;
 class KeyValueDatabase {
 private:
     struct Entry {
@@ -70,6 +71,12 @@ public:
     std::optional<long long> INCR(std::string& key, bool acquire_lock);
     std::vector<std::string> EXEC(std::vector<QueuedCommand>& commandQueue, ClientContext& context, KeyValueDatabase& db, bool acquire_lock);
     std::vector<std::string> KEYS(std::string &pattern, bool acquire_lock);
+    int ZADD(std::string& set_key, std::vector<std::string>& members, std::vector<double>& scores, bool acquire_lock);
+    int ZRANK(std::string& set_key, std::string& member, bool acquire_lock);
+    std::vector<std::string> ZRANGE(std::string& set_key, int start, int end, bool acquire_lock);
+    int ZCARD(std::string& set_key, bool acquire_lock);
+    double ZSCORE(std::string& set_key, std::string& member, bool acquire_lock);
+    int ZREM(std::string& set_key, std::vector<std::string>& members, bool acquire_lock);
 };
 
 // Declare that a global instance named 'database' exists somewhere.

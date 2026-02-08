@@ -563,3 +563,186 @@ std::vector<std::string> KeyValueDatabase::KEYS(std::string& pattern, bool acqui
     return results;
 }
 
+
+int KeyValueDatabase::ZADD(std::string& set_key, std::vector<std::string>& members, std::vector<double>& scores, bool acquire_lock) {
+    std::unique_lock<std::shared_mutex> db_lock(rw_lock, std::defer_lock);
+
+    if(acquire_lock) {
+        db_lock.lock();
+    }
+
+    auto it = map.find(set_key);
+
+    if(it == map.end()) {
+        map[set_key] = {Value(ZSet{}), ObjType::ZSET, -1};
+        it = map.find(set_key);
+    }
+
+    ZSet& zset = std::get<ZSet>(it->second.value);
+
+    int inserted = 0;
+
+    for(int i = 0; i < members.size(); i++) {
+        bool already_present = false;
+
+        if(zset.score_map.find(members[i]) != zset.score_map.end()) {
+            zset.score_set.erase({members[i], zset.score_map[members[i]]});
+            already_present = true;
+        }
+
+        zset.score_map[members[i]] = scores[i];
+        zset.score_set.insert({members[i], zset.score_map[members[i]]});
+
+        if(!already_present) inserted++;
+    }
+
+    return inserted;
+}
+
+int KeyValueDatabase::ZRANK(std::string& set_key, std::string& member, bool acquire_lock) {
+    std::shared_lock<std::shared_mutex> db_lock(rw_lock, std::defer_lock);
+
+    if(acquire_lock) {
+        db_lock.lock();
+    }
+
+    auto it = map.find(set_key);
+
+    if(it == map.end()) {
+        //sorted set does not exist
+        return -1;
+    }
+
+    ZSet& zset = std::get<ZSet>(it->second.value);
+
+    auto it_member = zset.score_map.find(member);
+
+    if(it_member == zset.score_map.end()) {
+        //given member does not exist inside the sorted set
+        return -1;
+    }
+
+    double score = zset.score_map[member];
+
+    auto it_set = zset.score_set.find({member, score});
+
+    int rank = std::distance(zset.score_set.begin(), it_set);
+
+    return rank;
+}
+
+std::vector<std::string> KeyValueDatabase::ZRANGE(std::string& set_key, int start, int end, bool acquire_lock) {
+    std::shared_lock<std::shared_mutex> db_lock(rw_lock, std::defer_lock);
+
+    if(acquire_lock) {
+        db_lock.lock();
+    }
+
+    auto it = map.find(set_key);
+
+    if(it == map.end()) {
+        //sorted set does not exist
+        return {};
+    }
+
+    ZSet& zset = std::get<ZSet>(it->second.value);
+
+    int size = zset.score_map.size();
+
+    start = (start < 0) ? (size + start) : start;
+    end = (end < 0) ? (size + end) : std::min(end, size);
+
+    if(start >= size || start > end) {
+        return {};
+    }
+
+    std::vector<std::string> members;
+
+    for(auto it = std::next(zset.score_set.begin(), start); it != std::next(zset.score_set.begin(), end + 1); it++) {
+        members.push_back(it->member);
+    }
+    
+    return members;
+}
+
+int KeyValueDatabase::ZCARD(std::string& set_key, bool acquire_lock) {
+    std::shared_lock<std::shared_mutex> db_lock(rw_lock, std::defer_lock);
+
+    if(acquire_lock) {
+        db_lock.lock();
+    }
+
+    auto it = map.find(set_key);
+
+    if(it == map.end()) {
+        //sorted set does not exist
+        return 0;
+    }
+
+    ZSet& zset = std::get<ZSet>(it->second.value);
+
+    return zset.score_map.size();
+}
+
+double KeyValueDatabase::ZSCORE(std::string& set_key, std::string& member, bool acquire_lock) {
+    std::shared_lock<std::shared_mutex> db_lock(rw_lock, std::defer_lock);
+
+    if(acquire_lock) {
+        db_lock.lock();
+    }
+
+    auto it = map.find(set_key);
+
+    if(it == map.end()) {
+        //sorted set does not exist
+        return -1;
+    }
+
+    ZSet& zset = std::get<ZSet>(it->second.value);
+
+    auto it_member = zset.score_map.find(member);
+
+    if(it_member == zset.score_map.end()) {
+        //given member does not exist inside the sorted set
+        return -1;
+    }
+
+    double score = zset.score_map[member];
+
+    return score;    
+}
+
+int KeyValueDatabase::ZREM(std::string& set_key, std::vector<std::string>& members, bool acquire_lock) {
+    std::unique_lock<std::shared_mutex> db_lock(rw_lock, std::defer_lock);
+
+    if(acquire_lock) {
+        db_lock.lock();
+    }
+
+    auto it = map.find(set_key);
+
+    if(it == map.end()) {
+        //sorted set does not exist
+        return 0;
+    }
+
+    ZSet& zset = std::get<ZSet>(it->second.value);
+
+    int removed = 0;
+
+    for(auto& member : members) {
+        auto it_member = zset.score_map.find(member);
+
+        if(it_member == zset.score_map.end()) {
+            //given member does not exist inside the sorted set
+            continue;
+        }
+
+        double score = zset.score_map[member];
+        zset.score_set.erase({member, score});
+        zset.score_map.erase(it_member);
+        removed++;
+    }
+    
+    return removed;
+}
