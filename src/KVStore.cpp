@@ -653,6 +653,7 @@ std::vector<std::string> KeyValueDatabase::ZRANGE(std::string& set_key, int star
     start = (start < 0) ? (size + start) : start;
     end = (end < 0) ? (size + end) : end;
 
+    if(start < 0) start = 0;
     if(end >= size) end = size - 1;
 
     if(start >= size || start > end) {
