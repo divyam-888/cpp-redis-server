@@ -281,6 +281,7 @@ std::string KeyValueDatabase::TYPE(std::string& key, bool acquire_lock) {
         case ObjType::HASH: return "hash";
         case ObjType::LIST: return "list";
         case ObjType::STREAM: return "stream";
+        case ObjType::ZSET: return "zset";
 
         default: return "none";
     }
@@ -650,7 +651,9 @@ std::vector<std::string> KeyValueDatabase::ZRANGE(std::string& set_key, int star
     int size = zset.score_map.size();
 
     start = (start < 0) ? (size + start) : start;
-    end = (end < 0) ? (size + end) : std::min(end, size);
+    end = (end < 0) ? (size + end) : end;
+
+    if(end >= size) end = size - 1;
 
     if(start >= size || start > end) {
         return {};
@@ -658,8 +661,12 @@ std::vector<std::string> KeyValueDatabase::ZRANGE(std::string& set_key, int star
 
     std::vector<std::string> members;
 
-    for(auto it = std::next(zset.score_set.begin(), start); it != std::next(zset.score_set.begin(), end + 1); it++) {
-        members.push_back(it->member);
+    auto it_start = std::next(zset.score_set.begin(), start);
+    int num_elements = end - start + 1;
+
+    for (int i = 0; i < num_elements; i++) {
+        members.push_back(it_start->member);
+        it_start++;
     }
     
     return members;
