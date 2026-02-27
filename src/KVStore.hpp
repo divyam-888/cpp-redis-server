@@ -10,10 +10,12 @@
 #include <deque>
 #include <vector>
 #include <list> 
+#include <algorithm>
 #include <condition_variable>
 #include "Stream.hpp"
 #include "ClientContext.hpp"
 #include "SortedSet.hpp"
+#include "GeoHelper.hpp"
 
 enum class ObjType {STRING, LIST, HASH, STREAM, ZSET};
 
@@ -77,6 +79,7 @@ public:
     int ZCARD(std::string& set_key, bool acquire_lock);
     std::optional<double> ZSCORE(std::string& set_key, std::string& member, bool acquire_lock);
     int ZREM(std::string& set_key, std::vector<std::string>& members, bool acquire_lock);
+    std::vector<std::string> GEOSEARCH(std::string& set_key, double center_lon, double center_lat, double radius_meters, bool sort_asc, bool acquire_lock);
 };
 
 // Declare that a global instance named 'database' exists somewhere.

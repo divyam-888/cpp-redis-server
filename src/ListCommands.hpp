@@ -979,3 +979,84 @@ public:
         return response;
     }
 };
+
+class GeoDistCommand : public Command {
+public:
+    std::string name() const override { return "GEODIST"; }
+    int min_args() const override { return 4; } 
+    bool isWriteCommand() const override { return false; }
+    bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
+
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
+        std::string set_key = args[1];
+        std::string member1 = args[2];
+        std::string member2 = args[3];
+        std::string unit = (args.size() > 4) ? args[4] : "m";
+
+        std::optional<double> score1_opt = db.ZSCORE(set_key, member1, acquire_lock);
+        std::optional<double> score2_opt = db.ZSCORE(set_key, member2, acquire_lock);
+
+        if (!score1_opt.has_value() || !score2_opt.has_value()) {
+            return "$-1\r\n";
+        }
+
+        double score1 = score1_opt.value();
+        double score2 = score2_opt.value();
+
+        Coordinates c1 = decode(static_cast<uint64_t>(score1));
+        Coordinates c2 = decode(static_cast<uint64_t>(score2));
+
+        double dist_meters = calculate_distance(c1.longitude, c1.latitude, c2.longitude, c2.latitude);
+
+        std::string formatted_dist = std::to_string(dist_meters);
+
+        return "$" + std::to_string(formatted_dist.length()) + "\r\n" + formatted_dist + "\r\n";
+    }
+};
+
+class GeoSearchCommand : public Command {
+public:
+    std::string name() const override { return "GEOSEARCH"; }
+    int min_args() const override { return 6; }
+    bool isWriteCommand() const override { return false; }
+    bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
+
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
+        std::string set_key = args[1];
+        
+        double center_lon = 0.0, center_lat = 0.0;
+        double radius_meters = 0.0;
+        bool sort_asc = true; 
+
+        // Basic parser loop
+        for (size_t i = 2; i < args.size(); ++i) {
+            std::string arg = args[i];
+            std::transform(arg.begin(), arg.end(), arg.begin(), ::toupper);
+
+            if (arg == "FROMLONLAT" && i + 2 < args.size()) {
+                center_lon = std::stod(args[++i]);
+                center_lat = std::stod(args[++i]);
+            } 
+            else if (arg == "BYRADIUS" && i + 2 < args.size()) {
+                radius_meters = std::stod(args[++i]);
+                std::string unit = args[++i];
+            } 
+            else if (arg == "ASC") {
+                sort_asc = true;
+            } 
+            else if (arg == "DESC") {
+                sort_asc = false;
+            }
+        }
+
+        std::vector<std::string> results = db.GEOSEARCH(set_key, center_lon, center_lat, radius_meters, sort_asc, acquire_lock);
+
+        std::string response = "*" + std::to_string(results.size()) + "\r\n";
+        for (const auto& member : results) {
+            response += "$" + std::to_string(member.length()) + "\r\n" + member + "\r\n";
+        }
+        return response;
+    }
+};

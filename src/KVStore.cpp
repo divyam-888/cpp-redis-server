@@ -2,6 +2,7 @@
 #include "Stream.hpp"
 #include "Command.hpp"
 #include "ClientContext.hpp"
+#include "GeoHelper.hpp"
 
 
 KeyValueDatabase db;
@@ -753,4 +754,46 @@ int KeyValueDatabase::ZREM(std::string& set_key, std::vector<std::string>& membe
     }
     
     return removed;
+}
+
+std::vector<std::string> KeyValueDatabase::GEOSEARCH(std::string& set_key, double center_lon, double center_lat, double radius_meters, bool sort_asc, bool acquire_lock) {
+    std::shared_lock<std::shared_mutex> db_lock(rw_lock, std::defer_lock);
+    if(acquire_lock) db_lock.lock();
+
+    auto it = map.find(set_key);
+    if(it == map.end() || it->second.type != ObjType::ZSET) {
+        return {};
+    }
+
+    ZSet& zset = std::get<ZSet>(it->second.value);
+
+    std::vector<std::pair<double, std::string>> valid_members;
+
+    for (const auto& node : zset.score_set) {
+        uint64_t geo_code = static_cast<uint64_t>(node.score);
+        Coordinates current_coord = decode(geo_code); 
+
+        double distance = calculate_distance(
+            center_lon, center_lat, 
+            current_coord.longitude, current_coord.latitude
+        );
+
+        if (distance <= radius_meters) {
+            valid_members.push_back({distance, node.member});
+        }
+    }
+
+    std::sort(valid_members.begin(), valid_members.end(), 
+        [sort_asc](const std::pair<double, std::string>& a, const std::pair<double, std::string>& b) {
+            if (sort_asc) return a.first < b.first;  // ASC
+            return a.first > b.first;                // DESC
+        }
+    );
+
+    std::vector<std::string> final_results;
+    for (const auto& item : valid_members) {
+        final_results.push_back(item.second);
+    }
+
+    return final_results;
 }

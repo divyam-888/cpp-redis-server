@@ -1,3 +1,4 @@
+#pragma once
 #include <iostream>
 #include <cstdint>
 #include <cmath>
@@ -81,4 +82,33 @@ uint64_t encode(double latitude, double longitude) {
     uint32_t lon_int = static_cast<uint32_t>(normalized_longitude);
 
     return interleave(lat_int, lon_int);
+}
+
+static constexpr double EARTH_RADIUS_IN_METERS = 6372797.560856;
+
+    // Convert degrees to radians
+static double deg_to_rad(double deg) {
+    return deg * M_PI / 180.0;
+}
+
+// The Haversine implementation
+static double calculate_distance(double lon1, double lat1, double lon2, double lat2) {
+    double dLat = deg_to_rad(lat2 - lat1);
+    double dLon = deg_to_rad(lon2 - lon1);
+    double lat1Rad = deg_to_rad(lat1);
+    double lat2Rad = deg_to_rad(lat2);
+
+    double a = std::sin(dLat / 2) * std::sin(dLat / 2) +
+               std::sin(dLon / 2) * std::sin(dLon / 2) * std::cos(lat1Rad) * std::cos(lat2Rad);
+    
+    double c = 2 * std::atan2(std::sqrt(a), std::sqrt(1 - a));
+    return EARTH_RADIUS_IN_METERS * c;
+}
+
+// Unit conversion utility
+static double convert_from_meters(double distance_in_meters, const std::string& unit) {
+    if (unit == "km") return distance_in_meters / 1000.0;
+    if (unit == "mi") return distance_in_meters / 1609.34;
+    if (unit == "ft") return distance_in_meters / 0.3048;
+    return distance_in_meters; // default "m"
 }

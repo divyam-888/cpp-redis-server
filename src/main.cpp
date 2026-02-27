@@ -144,6 +144,8 @@ int main(int argc, char **argv)
   registry.registerCommand(std::make_unique<ZRemCommand>());
   registry.registerCommand(std::make_unique<GeoAddCommand>());
   registry.registerCommand(std::make_unique<GeoPosCommand>());
+  registry.registerCommand(std::make_unique<GeoDistCommand>());
+  registry.registerCommand(std::make_unique<GeoSearchCommand>());
 
 
   std::cout << std::unitbuf;
