@@ -18,7 +18,7 @@ struct Coordinates {
     double longitude;
 };
 
-uint32_t compact_int64_to_int32(uint64_t v) {
+inline uint32_t compact_int64_to_int32(uint64_t v) {
     v = v & 0x5555555555555555ULL;
     v = (v | (v >> 1)) & 0x3333333333333333ULL;
     v = (v | (v >> 2)) & 0x0F0F0F0F0F0F0F0FULL;
@@ -28,7 +28,7 @@ uint32_t compact_int64_to_int32(uint64_t v) {
     return static_cast<uint32_t>(v);
 }
 
-Coordinates convert_grid_numbers_to_coordinates(uint32_t grid_latitude_number, uint32_t grid_longitude_number) {
+inline Coordinates convert_grid_numbers_to_coordinates(uint32_t grid_latitude_number, uint32_t grid_longitude_number) {
     // Calculate the grid boundaries
     double grid_latitude_min = MIN_LATITUDE + LATITUDE_RANGE * (grid_latitude_number / pow(2, 26));
     double grid_latitude_max = MIN_LATITUDE + LATITUDE_RANGE * ((grid_latitude_number + 1) / pow(2, 26));
@@ -43,7 +43,7 @@ Coordinates convert_grid_numbers_to_coordinates(uint32_t grid_latitude_number, u
     return result;
 }
 
-Coordinates decode(uint64_t geo_code) {
+inline Coordinates decode(uint64_t geo_code) {
     // Align bits of both latitude and longitude to take even-numbered position
     uint64_t y = geo_code >> 1;
     uint64_t x = geo_code;
@@ -55,7 +55,7 @@ Coordinates decode(uint64_t geo_code) {
     return convert_grid_numbers_to_coordinates(grid_latitude_number, grid_longitude_number);
 }
 
-uint64_t spread_int32_to_int64(uint32_t v) {
+inline uint64_t spread_int32_to_int64(uint32_t v) {
     uint64_t result = v;
     result = (result | (result << 16)) & 0x0000FFFF0000FFFFULL;
     result = (result | (result << 8)) & 0x00FF00FF00FF00FFULL;
@@ -65,14 +65,14 @@ uint64_t spread_int32_to_int64(uint32_t v) {
     return result;
 }
 
-uint64_t interleave(uint32_t x, uint32_t y) {
+inline uint64_t interleave(uint32_t x, uint32_t y) {
     uint64_t x_spread = spread_int32_to_int64(x);
     uint64_t y_spread = spread_int32_to_int64(y);
     uint64_t y_shifted = y_spread << 1;
     return x_spread | y_shifted;
 }
 
-uint64_t encode(double latitude, double longitude) {
+inline uint64_t encode(double latitude, double longitude) {
     // Normalize to the range 0-2^26
     double normalized_latitude = pow(2, 26) * (latitude - MIN_LATITUDE) / LATITUDE_RANGE;
     double normalized_longitude = pow(2, 26) * (longitude - MIN_LONGITUDE) / LONGITUDE_RANGE;
@@ -87,12 +87,12 @@ uint64_t encode(double latitude, double longitude) {
 static constexpr double EARTH_RADIUS_IN_METERS = 6372797.560856;
 
     // Convert degrees to radians
-static double deg_to_rad(double deg) {
+inline static double deg_to_rad(double deg) {
     return deg * M_PI / 180.0;
 }
 
 // The Haversine implementation
-static double calculate_distance(double lon1, double lat1, double lon2, double lat2) {
+inline static double calculate_distance(double lon1, double lat1, double lon2, double lat2) {
     double dLat = deg_to_rad(lat2 - lat1);
     double dLon = deg_to_rad(lon2 - lon1);
     double lat1Rad = deg_to_rad(lat1);
@@ -106,7 +106,7 @@ static double calculate_distance(double lon1, double lat1, double lon2, double l
 }
 
 // Unit conversion utility
-static double convert_from_meters(double distance_in_meters, const std::string& unit) {
+inline static double convert_from_meters(double distance_in_meters, const std::string& unit) {
     if (unit == "km") return distance_in_meters / 1000.0;
     if (unit == "mi") return distance_in_meters / 1609.34;
     if (unit == "ft") return distance_in_meters / 0.3048;
