@@ -15,7 +15,7 @@
 #include "Stream.hpp"
 #include "ClientContext.hpp"
 #include "SortedSet.hpp"
-#include "GeoHelper.hpp"
+
 
 enum class ObjType {STRING, LIST, HASH, STREAM, ZSET};
 
