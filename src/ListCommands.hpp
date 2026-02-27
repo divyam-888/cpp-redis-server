@@ -961,7 +961,7 @@ public:
             std::optional<double> score_opt = db.ZSCORE(set_key, member, acquire_lock);
 
             if(!score_opt.has_value()) {
-                response += "$-1\r\n";
+                response += "*-1\r\n";
                 continue;
             }
 
