@@ -75,7 +75,7 @@ public:
     int ZRANK(std::string& set_key, std::string& member, bool acquire_lock);
     std::vector<std::string> ZRANGE(std::string& set_key, int start, int end, bool acquire_lock);
     int ZCARD(std::string& set_key, bool acquire_lock);
-    double ZSCORE(std::string& set_key, std::string& member, bool acquire_lock);
+    std::optional<double> ZSCORE(std::string& set_key, std::string& member, bool acquire_lock);
     int ZREM(std::string& set_key, std::vector<std::string>& members, bool acquire_lock);
 };
 
