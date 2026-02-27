@@ -18,6 +18,7 @@
 #include "ClientContext.hpp"
 #include "Config.hpp"
 #include "PubSubManager.hpp"
+#include "GeoHelper.hpp"
 
 
 
@@ -864,11 +865,13 @@ public:
         std::string set_key = args[1];
         std::string member = args[2];
 
-        double score = db.ZSCORE(set_key, member, acquire_lock);
+        std::optional<double> score_opt = db.ZSCORE(set_key, member, acquire_lock);
 
-        if(score == -1) {
+        if(!score_opt.has_value()) {
             return "$-1\r\n";
         }
+
+        double score = score_opt.value();
 
         std::stringstream ss;
         ss << std::fixed << std::setprecision(20) << score;
@@ -897,5 +900,82 @@ public:
         int removed = db.ZREM(set_key, members, acquire_lock);
 
         return ":" + std::to_string(removed) + "\r\n";
+    }
+};
+
+class GeoAddCommand : public Command {
+public:
+    std::string name() const override { return "GEOADD"; }
+    int min_args() const override { return 5; }
+    bool isWriteCommand() const override { return true; }
+    bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
+
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
+        std::string set_key = args[1];
+
+        if ((args.size() - 2) % 3 != 0) {
+            return "-ERR syntax error\r\n";
+        }
+
+        std::vector<std::string> members;
+        std::vector<double> scores;
+
+        for (size_t i = 2; i < args.size(); i += 3) {
+            double longitude = std::stod(args[i]);
+            double latitude = std::stod(args[i+1]);
+            std::string member = args[i+2];
+
+            if(longitude > MAX_LONGITUDE || longitude < MIN_LONGITUDE || 
+                latitude > MAX_LATITUDE || latitude < MIN_LATITUDE) {
+                    return "-ERR invalid longitude/latitude argument\r\n";
+            }
+
+            uint64_t geo_code = encode(latitude, longitude);
+            scores.push_back(static_cast<double>(geo_code));
+            members.push_back(member);
+        }
+
+        int inserted = db.ZADD(set_key, members, scores, acquire_lock);
+        return ":" + std::to_string(inserted) + "\r\n";
+    }
+};
+
+class GeoPosCommand : public Command {
+public:
+    std::string name() const override { return "GEOPOS"; }
+    int min_args() const override { return 3; }
+    bool isWriteCommand() const override { return false; }
+    bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
+
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
+        std::string set_key = args[1];
+
+        std::vector<double> scores;
+
+        std::string response = "*" + std::to_string(args.size() - 2) + "\r\n";
+
+        for(int i = 2; i < args.size(); i++) {
+            std::string member = args[i];
+            std::optional<double> score_opt = db.ZSCORE(set_key, member, acquire_lock);
+
+            if(!score_opt.has_value()) {
+                response += "$-1\r\n";
+                continue;
+            }
+
+            uint64_t geo_code = static_cast<uint64_t>(score_opt.value());
+
+            Coordinates coord = decode(geo_code);
+
+            std::string longitude = std::to_string(coord.longitude);
+            std::string latitude = std::to_string(coord.latitude);
+
+            response += "*2\r\n$" + std::to_string(longitude.length()) + "\r\n" + longitude + "\r\n$"
+                         + std::to_string(latitude.length()) + "\r\n" + latitude + "\r\n";
+        }
+
+        return response;
     }
 };

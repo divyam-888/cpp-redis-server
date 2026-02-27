@@ -692,7 +692,7 @@ int KeyValueDatabase::ZCARD(std::string& set_key, bool acquire_lock) {
     return zset.score_map.size();
 }
 
-double KeyValueDatabase::ZSCORE(std::string& set_key, std::string& member, bool acquire_lock) {
+std::optional<double> KeyValueDatabase::ZSCORE(std::string& set_key, std::string& member, bool acquire_lock) {
     std::shared_lock<std::shared_mutex> db_lock(rw_lock, std::defer_lock);
 
     if(acquire_lock) {
@@ -703,7 +703,7 @@ double KeyValueDatabase::ZSCORE(std::string& set_key, std::string& member, bool 
 
     if(it == map.end()) {
         //sorted set does not exist
-        return -1;
+        return std::nullopt;
     }
 
     ZSet& zset = std::get<ZSet>(it->second.value);
@@ -712,7 +712,7 @@ double KeyValueDatabase::ZSCORE(std::string& set_key, std::string& member, bool 
 
     if(it_member == zset.score_map.end()) {
         //given member does not exist inside the sorted set
-        return -1;
+        return std::nullopt;
     }
 
     double score = zset.score_map[member];

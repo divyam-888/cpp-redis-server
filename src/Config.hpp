@@ -40,7 +40,7 @@ which is prohibited as struct contains mutex which is not moveable/copyable */
 std::shared_ptr<ServerConfig> parse_args(int argc, char** argv);
 
 
-/* when you have a configuration object that needs to be shared across many threads (your main thread, 
+/* when you have an object that needs to be shared across many threads (your main thread, 
 your replication thread, and all client threads), you should not pass it by value or move it. 
 Instead, you should place it on the Heap and share access to it using a Shared Pointer. By using std::shared_ptr<ServerConfig>, 
 you aren't moving the struct itself; you are just passing around a small pointer to the same memory location. */
