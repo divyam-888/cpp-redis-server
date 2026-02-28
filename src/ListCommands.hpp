@@ -1147,7 +1147,7 @@ public:
             context.authenticated_user = username;
             return "+OK\r\n";
         } else {
-            return "-ERR WRONGPASS invalid username-password pair or user is disabled.\r\n";
+            return "-WRONGPASS invalid username-password pair or user is disabled.\r\n";
         }
     }
 };
