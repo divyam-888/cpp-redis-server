@@ -18,6 +18,7 @@ public:
     bool is_replica;
     bool in_transaction;
     bool transaction_failed;
+    std::string authenticated_user;
     std::mutex client_mtx;
     std::vector<QueuedCommand> commandQueue;
 
@@ -27,6 +28,7 @@ public:
         is_replica = false;
         in_subscribe_mode = false;
         num_channel = 0;
+        authenticated_user = "";
     }
 
     void reset_transaction() {

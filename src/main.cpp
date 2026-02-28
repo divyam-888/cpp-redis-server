@@ -21,11 +21,16 @@
 #include "ReplicationManager.hpp"
 #include "RDBParser.hpp"
 #include "PubSubManager.hpp"
+#include "ACLManager.hpp"
 
-void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry, std::shared_ptr<ServerConfig> config)
+void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry, std::shared_ptr<ServerConfig> config, std:: shared_ptr<ACLManager> aclManager) 
 {
   char buffer[1024];
   ClientContext context(client_fd);
+
+  if(aclManager->nopass()) {
+    context.authenticated_user = "default";
+  }
 
   while (true)
   {
@@ -53,6 +58,8 @@ void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry
 
     if (!cmd) {
       response = "-ERR unknown command\r\n";
+    } else if(context.authenticated_user.empty() && cmd->name() != "AUTH" && cmd->name() != "QUIT") {
+      response = "-ERR -NOAUTH Authentication required.\r\n";
     } else if (args.size() < cmd->min_args()) {
       response = "-ERR wrong number of arguments\r\n";
     } else {
@@ -96,6 +103,7 @@ int main(int argc, char **argv)
   CommandRegistry registry;
   std::shared_ptr<PubSubManager> manager = std::make_shared<PubSubManager>();
   std::shared_ptr<ServerConfig> config = parse_args(argc, argv);
+  std::shared_ptr<ACLManager> aclManager = std::make_unique<ACLManager>();
 
   std::string full_path = config->rdb_file_dir + "/" + config->rdb_file_name;
   RDBParser::load(full_path, db);
@@ -146,6 +154,8 @@ int main(int argc, char **argv)
   registry.registerCommand(std::make_unique<GeoPosCommand>());
   registry.registerCommand(std::make_unique<GeoDistCommand>());
   registry.registerCommand(std::make_unique<GeoSearchCommand>());
+  registry.registerCommand(std::make_unique<ACLCommand>(aclManager));
+  registry.registerCommand(std::make_unique<AuthCommand>(aclManager));
 
 
   std::cout << std::unitbuf;
@@ -214,7 +224,7 @@ int main(int argc, char **argv)
     std::cout << "New Client Connected! Spawning thread...\n";
 
     // New thread for this client; We use std::thread and pass the routine + arguments
-    std::thread client_thread(handleClient, client_fd, std::ref(db), std::ref(registry), config);
+    std::thread client_thread(handleClient, client_fd, std::ref(db), std::ref(registry), config, aclManager);
 
     // Detaching the thread so main can continue running waiting for new clients
     client_thread.detach();

@@ -1060,3 +1060,90 @@ public:
         return response;
     }
 };
+
+class ACLCommand : public Command {
+private:
+    std::shared_ptr<ACLManager> aclManager;
+public:
+    ACLCommand(std::shared_ptr<ACLManager> aclManager_) : aclManager(aclManager_) {}
+    std::string name() const override { return "ACL"; }
+    int min_args() const override { return 2; } 
+    bool isWriteCommand() const override { return false; }
+    bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
+
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
+        std::string command = args[1];
+
+
+        if(command == "WHOAMI") {
+            return "$" + std::to_string(context.authenticated_user.length()) + "\r\n" + context.authenticated_user + "\r\n";
+        } else if (command == "GETUSER") {
+            if(args.size() < 3) {
+                return "-ERR wrong number of arguments\r\n";
+            }
+
+            std::string username = args[2];
+            std::optional<ACLUser> user_opt = aclManager->getUser(username);
+
+            if(!user_opt.has_value()) {
+                return "-ERR user not found\r\n";
+            }
+
+            ACLUser& user = user_opt.value();
+
+            std::string response = "";
+
+            if(user.nopass) {
+                response = "*2\r\n$5\r\nflags\r\n*1\r\n$6\r\nnopass\r\n";
+            } else {
+                response = "*4\r\n$5\r\nflags\r\n*0\r\n$9\r\npasswords\r\n*" + std::to_string(user.hashed_passwords.size()) + "\r\n";
+                for(std::string& password : user.hashed_passwords) {
+                    response += "$" + std::to_string(password.length()) + "\r\n" + password + "\r\n";
+                }
+            }
+            
+            return response;
+        } else if(command == "SETUSER") {
+            if(args.size() < 4) {
+                return "-ERR wrong number of arguments\r\n";
+            }
+
+            std::string username = args[2];
+            std::string new_password = args[3].substr(1);
+
+            aclManager->setUser(username, new_password);
+
+            return "+OK\r\n";
+        } else {
+            return "-ERR Invalid Arguement\r\n";
+        }
+    }
+};
+
+class AuthCommand : public Command {
+private:
+    std::shared_ptr<ACLManager> aclManager;
+public:
+    AuthCommand(std::shared_ptr<ACLManager> aclManager_) : aclManager(aclManager_) {}
+    std::string name() const override { return "AUTH"; }
+    int min_args() const override { return 3; } 
+    bool isWriteCommand() const override { return false; }
+    bool sendToMaster() const override { return false; }
+    bool isPubSubCommand() const override { return false; }
+
+    std::string execute(ClientContext& context, const std::vector<std::string> &args, KeyValueDatabase &db, bool acquire_lock) override {
+        std::string username = args[1];
+        std::string cleartext_password = args[2];
+
+        bool authorised = aclManager->authenticate(username, cleartext_password);
+
+        if(authorised) {
+            context.authenticated_user = username;
+            return "+OK\r\n";
+        } else {
+            return "-ERR WRONGPASS invalid username-password pair or user is disabled.\r\n";
+        }
+    }
+};
+
