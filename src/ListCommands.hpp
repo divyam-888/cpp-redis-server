@@ -1094,7 +1094,15 @@ public:
 
             std::string response = "";
 
-            response = "*4\r\n$5\r\nflags\r\n*0\r\n$9\r\npasswords\r\n*" + std::to_string(user.hashed_passwords.size()) + "\r\n";
+            response = "*4\r\n$5\r\nflags\r\n";
+            
+            if(user.nopass) {
+                response += "*1\r\n$6\r\nnopass\r\n";
+            } else {
+                response += "*0\r\n";
+            }
+
+            response += "$9\r\npasswords\r\n*" + std::to_string(user.hashed_passwords.size()) + "\r\n";
             
             for(std::string& password : user.hashed_passwords) {
                 response += "$" + std::to_string(password.length()) + "\r\n" + password + "\r\n";
