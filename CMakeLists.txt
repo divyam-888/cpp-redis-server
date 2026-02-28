@@ -12,5 +12,11 @@ find_package(asio CONFIG REQUIRED)
 
 add_executable(redis ${SOURCE_FILES})
 
+# Tell CMake to find the OpenSSL libraries on the system
+find_package(OpenSSL REQUIRED)
+
+# Link the OpenSSL Crypto library to your 'redis' target
+target_link_libraries(redis PRIVATE OpenSSL::Crypto)
+
 target_link_libraries(redis PRIVATE asio asio::asio)
 target_link_libraries(redis PRIVATE Threads::Threads)
