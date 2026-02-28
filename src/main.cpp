@@ -59,7 +59,7 @@ void handleClient(int client_fd, KeyValueDatabase &db, CommandRegistry &registry
     if (!cmd) {
       response = "-ERR unknown command\r\n";
     } else if(context.authenticated_user.empty() && cmd->name() != "AUTH" && cmd->name() != "QUIT") {
-      response = "-ERR -NOAUTH Authentication required.\r\n";
+      response = "-NOAUTH Authentication required.\r\n";
     } else if (args.size() < cmd->min_args()) {
       response = "-ERR wrong number of arguments\r\n";
     } else {
