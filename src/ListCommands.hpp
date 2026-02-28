@@ -19,7 +19,7 @@
 #include "Config.hpp"
 #include "PubSubManager.hpp"
 #include "GeoHelper.hpp"
-
+#include "ACLManager.hpp"
 
 
 class RPUSH : public Command
